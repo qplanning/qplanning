@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Q-Planning: Self-Improving Robot Policies via Off-Policy Q-Planning</title>
+  <meta name="description" content="Q-Planning turns a frozen behaviour-cloning policy into a self-improving system by pairing it with a small off-policy Q-function and a temporal-smoothed MPPI planner." />
+  <link rel="icon" href="assets/favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+  <script defer src="js/main.js"></script>
+</head>
+<body>
+  <nav id="topnav">
+    <div class="nav-inner">
+      <a class="nav-title" href="#top">Q-Planning</a>
+      <div class="nav-actions">
+        <a class="btn btn-secondary" href="assets/paper.pdf" target="_blank" rel="noopener">Paper</a>
+        <a class="btn btn-primary" href="https://github.com/ignatmg/qplanning" target="_blank" rel="noopener">Code</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page" id="top">
+    <aside id="sidebar" aria-label="On this page">
+      <div class="sidebar-inner">
+        <p class="sidebar-heading">On this page</p>
+        <ul class="toc">
+          <li><a href="#abstract">Abstract</a></li>
+          <li><a href="#tldr">TL;DR</a></li>
+          <li><a href="#method">Method</a>
+            <ul>
+              <li><a href="#method-q">Q-function</a></li>
+              <li><a href="#method-mppi">MPPI planner</a></li>
+              <li><a href="#method-loop">Self-improvement loop</a></li>
+            </ul>
+          </li>
+          <li><a href="#results">Results</a></li>
+          <li><a href="#limitations">Limitations</a></li>
+          <li><a href="#bibtex">BibTeX</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <main>
+
+    <header class="hero">
+      <h1>Beyond Imitation:<br/>Self-Improving Robot Policies via Off-Policy Q-Planning</h1>
+      <p class="authors">Anonymous Authors</p>
+      <p class="affil">Under review at <em>CoRL 2026</em></p>
+      <div class="hero-actions">
+        <a class="btn btn-secondary" href="assets/paper.pdf" target="_blank" rel="noopener">
+          <span aria-hidden="true">&#128196;</span> Paper (PDF)
+        </a>
+        <a class="btn btn-primary" href="https://github.com/ignatmg/qplanning" target="_blank" rel="noopener">
+          <span aria-hidden="true">&lt;/&gt;</span> Code
+        </a>
+        <a class="btn btn-ghost" href="#bibtex">BibTeX</a>
+      </div>
+    </header>
+
+    <figure class="teaser">
+      <img src="assets/teaser.png" alt="Q-Planning overview diagram" />
+      <figcaption>
+        <strong>Q-Planning overview.</strong>
+        <em>Left:</em> at inference, the frozen BC policy samples <em>N</em> candidate action chunks; the Q-function
+        scores them and MPPI aggregates the chunk that is executed in the environment.
+        <em>Right:</em> rollouts (successful and failed) are appended to a replay buffer and used to fine-tune
+        <em>only</em> the Q-function. The updated $Q_\phi$ returns to the next inference iteration;
+        the BC policy is never updated.
+      </figcaption>
+    </figure>
+
+    <section id="abstract">
+      <h2>Abstract</h2>
+      <p>
+        Behaviour Cloning (BC) has driven remarkable progress in robot manipulation, yet it is fundamentally
+        limited by its inability to self-improve: a policy that fails cannot learn from that failure without
+        additional human demonstrations. Reinforcement Learning offers a path to self-improvement but has proven
+        difficult to scale to the multi-billion-parameter models underpinning modern robot policies. We propose
+        <strong class="hl">Q-Planning</strong>, which equips a large visuomotor BC policy with a small off-policy
+        Q-function. Q-learning is not restricted to successful demonstrations the way BC is, so the same
+        Q-function can be trained on demos and later absorb both successful and failed deployment rollouts
+        without ever imitating them. We exploit this asymmetry to enable value-guided action selection at
+        inference and online self-improvement that fine-tunes only the Q-function, without ever updating the BC.
+        Evaluated on LIBERO and RoboTwin, six iterations of online self-improvement progressively lift LIBERO-10
+        success from <strong>93%</strong> to <strong>99%</strong> while shortening successful episodes by 11%,
+        updating only the Q-function; offline Q-Planning also improves over the BC policy on 4 of 5 benchmarks
+        (+1.4pp on the LIBERO aggregate, +4.8pp on RoboTwin).
+      </p>
+    </section>
+
+    <section id="tldr">
+      <h2>TL;DR</h2>
+      <ol class="tldr-list">
+        <li>
+          <strong>An off-policy Q-function for large BC policies.</strong>
+          A Q-chunking architecture with HL-Gauss categorical outputs and its own DinoV2 and T5 encoders,
+          trained on the same demonstrations used to train the BC policy.
+        </li>
+        <li>
+          <strong>Tractable Q-guided planning at VLA scale.</strong>
+          A temporal-smoothed MPPI planner with BC warm-starting that re-ranks flow-matching action chunks
+          at inference, made efficient by re-using a single encoder forward pass for all <em>N</em>
+          trajectory samples.
+        </li>
+        <li>
+          <strong>Self-improvement without touching the BC.</strong>
+          A loop that turns 600 deployment episodes into Q-only updates, lifting LIBERO-10 success from
+          <strong>93% to 99%</strong> (+9pp over the frozen FastWAM policy).
+        </li>
+      </ol>
+    </section>
+
+    <section id="method">
+      <h2>Method</h2>
+      <p class="lede">
+        Q-Planning consists of three components: an off-policy Q-function over action chunks, a
+        temporal-smoothed MPPI planner with BC warm-starting, and a self-improvement loop that fine-tunes
+        <em>only</em> the Q-function. At every stage the base BC policy is frozen.
+      </p>
+
+      <h3 id="method-q">1. Off-policy Q-function over action chunks</h3>
+      <p>
+        Standard scalar Q-regression under sparse terminal rewards is unstable; most transitions carry no
+        reward signal, and the long horizons of manipulation tasks amplify bootstrapping error. We therefore
+        (i) treat the length-<em>H</em> action chunk as a single super-action so the effective bootstrapping
+        horizon shrinks by a factor of <em>H</em>, and (ii) replace scalar regression with HL-Gauss
+        categorical regression, which projects each scalar target onto a fixed grid of bins via a Gaussian
+        kernel and trains the Q-network with a cross-entropy objective.
+      </p>
+      <figure class="arch">
+        <img src="assets/architecture.svg" alt="Q-function architecture: DinoV2 and T5 encoders feed a transformer decoder that cross-attends to visual and language tokens and takes the action chunk as query tokens; the decoder output goes through an HL-Gauss head to produce Q." />
+        <figcaption>
+          The Q-function has its own DinoV2 visual encoder and T5 language encoder
+          (parameter-disjoint from the BC policy). A transformer decoder cross-attends to visual and language
+          tokens and takes the candidate action chunk as query tokens. The HL-Gauss head outputs
+          <em>B</em> bin logits over discounted returns.
+        </figcaption>
+      </figure>
+      <div class="eq">
+        $$ Q_\phi(o_t, \ell, a_{t:t+H}) \;=\; \sum_{b=1}^{B} v_b \cdot \operatorname{softmax}\bigl(\ell_\phi(o_t,\ell,a_{t:t+H})\bigr)_b $$
+      </div>
+
+      <h3 id="method-mppi">2. Temporal-smoothed MPPI planner</h3>
+      <p>
+        The natural inference-time strategy is to sample <em>N</em> action chunks per planning step, score them
+        with $Q_\phi$, and aggregate via MPPI weights. Two issues break the naive recipe at VLA scale:
+        flow-matching BC heads produce near-identical samples, and replacing BC samples with random noise
+        yields chunks far outside the Q-function's training support. We therefore
+        (i) <strong>warm-start</strong> the proposal from BC samples to localise the search on the manifold the
+        BC already finds plausible, and (ii) apply <strong>temporal smoothing</strong> to injected noise so
+        perturbed chunks stay temporally coherent.
+      </p>
+      <figure class="side-fig">
+        <img src="assets/traj_diversity.png" alt="Action-chunk diversity on one LIBERO-10 planning step. BC samples cluster tightly; vanilla MPPI spreads but is jagged; temporal smoothing keeps the spread while staying coherent." />
+        <figcaption>
+          <strong>Action-chunk diversity</strong> on a single LIBERO-10 planning step (<em>z</em>-translation,
+          64 candidates). BC samples cluster tightly; vanilla MPPI spreads but is jagged; temporal smoothing
+          keeps the spread while staying coherent.
+        </figcaption>
+      </figure>
+      <div class="eq">
+        $$ w^{(n,i)} \propto \exp\bigl(Q_\phi(o_t, \ell, a^{(n,i)}_{t:t+H})/\lambda\bigr), \qquad
+           \bar{a}^{(i+1)}_{t:t+H} = \sum_{n=1}^{N} w^{(n,i)}\, a^{(n,i)}_{t:t+H} $$
+      </div>
+
+      <h3 id="method-loop">3. Self-improvement loop</h3>
+      <p>
+        A BC policy trained only on successful demonstrations has never seen the failure modes that emerge
+        under autonomous execution. Q-Planning closes this loop by deploying the planner, collecting both
+        successful <em>and</em> failed rollouts, and using them to refine <em>only</em> the Q-function. This
+        keeps the cost of one self-improvement iteration proportional to the size of the Q-function
+        (&sim;1B parameters) rather than the BC policy (multi-billion), which is the expensive component to train.
+      </p>
+      <pre class="algo"><code>D &larr; D_BC
+for iteration i = 1, 2, ... do
+    <span class="algo-cmt"># (1) Collect rollouts under Q-Planning (BC frozen)</span>
+    for task k, episode j = 1 ... M do
+        reset env, receive o_0
+        while episode not done do
+            plan iteratively with MPPI &rarr; a_{t:t+H}
+            execute a_{t:t+H}, observe r_{t+H}, o_{t+H}
+        append episode to D
+    <span class="algo-cmt"># (2) Refine Q only (BC frozen)</span>
+    for s = 1 ... S do
+        update &phi; on a minibatch from D via the Q-chunking loss
+        EMA update &phi;&#772; &larr; &eta;&phi; + (1-&eta;)&phi;&#772;
+</code></pre>
+    </section>
+
+    <section id="results">
+      <h2>Results</h2>
+
+      <h3>Main results</h3>
+      <p>
+        Q-Planning improves over the frozen FastWAM BC policy on 4 of 5 benchmarks (offline: +1.4pp on the
+        LIBERO aggregate, +4.8pp on RoboTwin), and six rounds of online self-improvement on LIBERO-10 push
+        success to <strong>99%</strong>. Because online self-improvement was only evaluated on LIBERO-10,
+        the online column reports results for that benchmark only. Hover the bars to see values and to
+        highlight the corresponding table cell.
+      </p>
+
+      <figure id="results-chart" class="chart-fig" aria-label="Bar chart comparing FastWAM, Q-Planning offline, and Q-Planning online on LIBERO-10.">
+        <!-- Rendered by js/main.js -->
+      </figure>
+      <div id="chart-tooltip" role="tooltip"></div>
+
+      <div class="table-wrap">
+        <table class="results" id="results-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Benchmark</th>
+              <th colspan="2">FastWAM</th>
+              <th colspan="2" class="hl-col hl-col-offline">Q-Planning (offline)</th>
+              <th colspan="2" class="hl-col hl-col-online">Q-Planning (online)</th>
+            </tr>
+            <tr>
+              <th>Success &uarr;</th>
+              <th>Ep. len. &darr;</th>
+              <th class="hl-col hl-col-offline">Success &uarr;</th>
+              <th class="hl-col hl-col-offline">Ep. len. &darr;</th>
+              <th class="hl-col hl-col-online">Success &uarr;</th>
+              <th class="hl-col hl-col-online">Ep. len. &darr;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>LIBERO-Spatial</td>
+              <td>90.5</td><td>106</td>
+              <td class="hl-col hl-col-offline"><strong>91.5</strong></td><td class="hl-col hl-col-offline">115</td>
+              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+            </tr>
+            <tr>
+              <td>LIBERO-Object</td>
+              <td><strong>100.0</strong></td><td>138</td>
+              <td class="hl-col hl-col-offline">99.5</td><td class="hl-col hl-col-offline">139</td>
+              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+            </tr>
+            <tr>
+              <td>LIBERO-Goal</td>
+              <td>97.0</td><td>107</td>
+              <td class="hl-col hl-col-offline">99.0</td><td class="hl-col hl-col-offline">110</td>
+              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+            </tr>
+            <tr>
+              <td>LIBERO-10</td>
+              <td id="cell-libero10-fastwam-success">90.0</td>
+              <td id="cell-libero10-fastwam-eplen">274</td>
+              <td class="hl-col hl-col-offline" id="cell-libero10-qplan-offline-success">93.0</td>
+              <td class="hl-col hl-col-offline" id="cell-libero10-qplan-offline-eplen">261</td>
+              <td class="hl-col hl-col-online" id="cell-libero10-qplan-online-success"><strong>99.0</strong></td>
+              <td class="hl-col hl-col-online" id="cell-libero10-qplan-online-eplen"><strong>232</strong></td>
+            </tr>
+            <tr>
+              <td>RoboTwin (47 tasks)</td>
+              <td>83.2</td><td>220</td>
+              <td class="hl-col hl-col-offline"><strong>88.0</strong></td><td class="hl-col hl-col-offline">231</td>
+              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+            </tr>
+            <tr class="mean-row">
+              <td>Mean</td>
+              <td>92.1</td><td>&mdash;</td>
+              <td class="hl-col hl-col-offline"><strong>94.2</strong></td><td class="hl-col hl-col-offline">&mdash;</td>
+              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Online self-improvement on LIBERO-10</h3>
+      <p>
+        Starting from the same frozen FastWAM and a Q-function pre-trained on successful demonstrations only,
+        six iterations of 100 rollouts each &mdash; alternated with 200 Q-only gradient steps &mdash;
+        lift success from <strong>93% to 99%</strong> and shorten successful episodes from 261 to 232
+        environment steps. <strong>No BC parameters are updated.</strong>
+      </p>
+      <figure>
+        <img src="assets/self_improvement.png" alt="Three plots showing Q-function fine-tuning loss decreasing, success rate rising from 93 to 99 percent across six iterations, and mean episode length falling from 261 to 232 steps." />
+        <figcaption>
+          <strong>Q-Planning self-improvement on LIBERO-10.</strong> Across six rounds of 100 rollouts each,
+          success rises from 93% to 99% and mean successful episode length drops from 261 to 232 steps.
+          Dashed lines mark the frozen FastWAM. The BC parameters are never updated.
+        </figcaption>
+      </figure>
+
+      <h3>Q-value trajectories</h3>
+      <figure>
+        <img src="assets/q_over_time.png" alt="Q-value over time on two LIBERO-10 episodes. On success, Q climbs from about 0.26 to 0.63; on failure it oscillates in a lower range and never converges." />
+        <figcaption>
+          <strong>Q-value over time.</strong> On a successful rollout $Q_\phi$ climbs from &sim;0.26 to &sim;0.63;
+          on a failure it oscillates in a lower range and never converges &mdash; a useful sanity signal for the
+          value estimate.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="limitations">
+      <h2>Limitations</h2>
+      <p>
+        Q-Planning cannot bootstrap from scratch: removing the BC warm-start collapses LIBERO-10 success from
+        93% to 3.3%. The method inherits the BC's action-distribution biases and its gains scale with BC quality.
+        The sparse terminal reward also assumes a reliable per-episode success detector &mdash; trivial in simulation
+        but non-trivial on real hardware. Online planning adds decoder latency relative to direct BC inference;
+        folding the Q-signal back into the policy via gradient fine-tuning is one route to remove this at deploy time.
+      </p>
+    </section>
+
+    <section id="bibtex">
+      <h2>BibTeX</h2>
+      <div class="bibtex-wrap">
+        <button class="copy-btn" id="copy-bibtex" type="button">Copy</button>
+        <pre id="bibtex-block"><code>@inproceedings{qplanning2026,
+  title     = {Beyond Imitation: Self-Improving Robot Policies via Off-Policy Q-Planning},
+  author    = {Anonymous Authors},
+  booktitle = {Under review at Conference on Robot Learning (CoRL)},
+  year      = {2026}
+}</code></pre>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        <a href="#top">Back to top &uarr;</a>
+      </p>
+      <p class="footer-note">
+        Page built as a static site &mdash; source in this repository.
+      </p>
+    </footer>
+
+    </main>
+  </div>
+</body>
+</html>
