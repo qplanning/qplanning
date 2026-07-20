@@ -61,6 +61,97 @@
     sections.forEach(s => observer.observe(s));
   }
 
+  // ================= Rollout video comparison =================
+  const rollout = document.querySelector('.rollout-compare');
+  if (rollout) {
+    const meta = (() => {
+      try { return JSON.parse(rollout.getAttribute('data-videos')); }
+      catch { return []; }
+    })();
+    const metaByIter = new Map(meta.map(m => [m.iter, m]));
+
+    const master = document.getElementById('video-left');
+    const rightVideos = Array.from(rollout.querySelectorAll('.video-right'));
+    const slider = document.getElementById('iter-range');
+    const iterLabel = document.getElementById('iter-slider-value');
+    const metaIter = document.getElementById('meta-right-iter');
+    const metaSteps = document.getElementById('meta-right-steps');
+    const metaBadge = document.getElementById('meta-right-badge');
+
+    // Kick off playback (muted required for autoplay in most browsers).
+    const playAll = () => {
+      const els = [master, ...rightVideos];
+      els.forEach(v => {
+        v.muted = true;
+        const p = v.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      });
+    };
+
+    // ---- Master-driven sync ----
+    // Master is the longest video (iter0). When it wraps back to the start,
+    // reset every other video to 0 so they restart in lockstep. Shorter clips
+    // simply run out and freeze on their last frame until the next wrap.
+    master.loop = true;
+    rightVideos.forEach(v => { v.loop = false; });
+
+    let lastMasterT = 0;
+    const resetAll = () => {
+      rightVideos.forEach(v => {
+        try { v.currentTime = 0; } catch {}
+        const p = v.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      });
+    };
+
+    master.addEventListener('timeupdate', () => {
+      const t = master.currentTime;
+      // Wrap detected: currentTime jumped backwards.
+      if (t + 0.05 < lastMasterT) resetAll();
+      lastMasterT = t;
+    });
+
+    // Some browsers fire `seeked` when a loop wraps; treat as wrap too.
+    master.addEventListener('seeked', () => {
+      if (master.currentTime < 0.1) resetAll();
+    });
+
+    // ---- Slider: pick which right-hand iteration is visible ----
+    const setActiveIter = (iter) => {
+      rightVideos.forEach(v => {
+        v.classList.toggle('is-active', Number(v.dataset.iter) === iter);
+      });
+      iterLabel.textContent = iter;
+      metaIter.textContent = iter;
+      const m = metaByIter.get(iter);
+      if (m) {
+        metaSteps.textContent = m.steps;
+        metaBadge.classList.toggle('badge-success',  m.success);
+        metaBadge.classList.toggle('badge-failure', !m.success);
+        metaBadge.title = m.success ? 'Successful episode' : 'Failed episode';
+        metaBadge.innerHTML = m.success ? '✓&nbsp;success' : '✗&nbsp;failure';
+      }
+    };
+    setActiveIter(1);
+
+    slider.addEventListener('input', (e) => {
+      setActiveIter(Number(e.target.value));
+    });
+
+    // Start playback once the master's metadata is ready.
+    if (master.readyState >= 1) playAll();
+    else master.addEventListener('loadedmetadata', playAll, { once: true });
+
+    // Pause/resume based on tab visibility to avoid runaway drift when hidden.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        [master, ...rightVideos].forEach(v => v.pause());
+      } else {
+        playAll();
+      }
+    });
+  }
+
   // ================= Interactive results chart =================
   const chartEl = document.getElementById('results-chart');
   const tooltipEl = document.getElementById('chart-tooltip');
