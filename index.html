@@ -30,7 +30,6 @@
         <p class="sidebar-heading">On this page</p>
         <ul class="toc">
           <li><a href="#abstract">Abstract</a></li>
-          <li><a href="#rollouts">Rollouts</a></li>
           <li><a href="#tldr">TL;DR</a></li>
           <li><a href="#method">Method</a>
             <ul>
@@ -94,15 +93,29 @@
       </p>
     </section>
 
-    <section id="rollouts" aria-labelledby="rollouts-heading">
-      <h2 id="rollouts-heading">Self-improvement in action</h2>
-      <p class="lede">
-        LIBERO-10 &mdash; <code>put_black_bowl_in_bottom_drawer_and_close</code>. Left: the frozen Q-function
-        after supervised pre-training (iteration&nbsp;0). Right: after successive rounds of Q-only online
-        self-improvement. All videos start together; the shorter clips freeze on their final frame until the
-        loop resets.
-      </p>
+    <section id="tldr">
+      <h2>TL;DR</h2>
+      <ol class="tldr-list">
+        <li>
+          <strong>An off-policy Q-function for large BC policies.</strong>
+          A Q-chunking architecture with HL-Gauss categorical outputs and its own DinoV2 and T5 encoders,
+          trained on the same demonstrations used to train the BC policy.
+        </li>
+        <li>
+          <strong>Tractable Q-guided planning at VLA scale.</strong>
+          A temporal-smoothed MPPI planner with BC warm-starting that re-ranks flow-matching action chunks
+          at inference, made efficient by re-using a single encoder forward pass for all <em>N</em>
+          trajectory samples.
+        </li>
+        <li>
+          <strong>Self-improvement without touching the BC.</strong>
+          A loop that turns 600 deployment episodes into Q-only updates, lifting LIBERO-10 success from
+          <strong>93% to 99%</strong> (+9pp over the frozen FastWAM policy).
+        </li>
+      </ol>
+    </section>
 
+    <div class="rollout-block">
       <div class="rollout-compare"
            data-videos='[
              {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":true},
@@ -170,29 +183,14 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <section id="tldr">
-      <h2>TL;DR</h2>
-      <ol class="tldr-list">
-        <li>
-          <strong>An off-policy Q-function for large BC policies.</strong>
-          A Q-chunking architecture with HL-Gauss categorical outputs and its own DinoV2 and T5 encoders,
-          trained on the same demonstrations used to train the BC policy.
-        </li>
-        <li>
-          <strong>Tractable Q-guided planning at VLA scale.</strong>
-          A temporal-smoothed MPPI planner with BC warm-starting that re-ranks flow-matching action chunks
-          at inference, made efficient by re-using a single encoder forward pass for all <em>N</em>
-          trajectory samples.
-        </li>
-        <li>
-          <strong>Self-improvement without touching the BC.</strong>
-          A loop that turns 600 deployment episodes into Q-only updates, lifting LIBERO-10 success from
-          <strong>93% to 99%</strong> (+9pp over the frozen FastWAM policy).
-        </li>
-      </ol>
-    </section>
+      <p class="rollout-caption">
+        <strong>Self-improvement on <code>put_black_bowl_in_bottom_drawer_and_close</code> (LIBERO-10).</strong>
+        Left: the Q-function after supervised pre-training only (iteration&nbsp;0, 520 steps). Right: after
+        successive rounds of Q-only online self-improvement &mdash; the BC policy is never updated. Use the
+        slider to pick which iteration plays on the right. All clips restart together every 6.5&nbsp;s; the
+        faster iterations freeze on their final frame until the loop resets.
+      </p>
+    </div>
 
     <section id="method">
       <h2>Method</h2>
