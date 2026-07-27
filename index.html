@@ -118,7 +118,7 @@
     <div class="rollout-block">
       <div class="rollout-compare"
            data-videos='[
-             {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":true},
+             {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":false},
              {"iter":1,"src":"assets/videos/bowl_iter1.mp4","steps":520,"success":true},
              {"iter":2,"src":"assets/videos/bowl_iter2.mp4","steps":343,"success":true},
              {"iter":3,"src":"assets/videos/bowl_iter3.mp4","steps":317,"success":true},
@@ -137,7 +137,7 @@
             <figcaption class="rollout-meta" id="meta-left">
               <span class="rollout-label">Iteration&nbsp;0 &middot; offline Q-function</span>
               <span class="rollout-stats">
-                <span class="badge badge-success" title="Successful episode">&#10003;&nbsp;success</span>
+                <span class="badge badge-failure" title="Failed episode">&#10007;&nbsp;failure</span>
                 <span class="rollout-steps"><strong>520</strong> steps</span>
               </span>
             </figcaption>
@@ -185,8 +185,8 @@
       </div>
       <p class="rollout-caption">
         <strong>Self-improvement on <code>put_black_bowl_in_bottom_drawer_and_close</code> (LIBERO-10).</strong>
-        Left: the Q-function after supervised pre-training only (iteration&nbsp;0, 520 steps). Right: after
-        successive rounds of Q-only online self-improvement &mdash; the BC policy is never updated. Use the
+        Left: the Q-function after supervised pre-training only (iteration&nbsp;0) fails to complete the task.
+        Right: after successive rounds of Q-only online self-improvement &mdash; the BC policy is never updated. Use the
         slider to pick which iteration plays on the right. All clips restart together every 6.5&nbsp;s; the
         faster iterations freeze on their final frame until the loop resets.
       </p>
