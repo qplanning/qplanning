@@ -423,6 +423,7 @@ figcaption strong { color: var(--ink); }
   font-size: 14.5px;
   line-height: 1.75;
   overflow-x: auto;
+  text-align: left;
 }
 .algo-header {
   padding: 0 6px 8px;
