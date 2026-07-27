@@ -119,7 +119,7 @@
       <div class="rollout-compare"
            data-videos='[
              {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":false},
-             {"iter":1,"src":"assets/videos/bowl_iter1.mp4","steps":520,"success":true},
+             {"iter":1,"src":"assets/videos/bowl_iter1.mp4","steps":518,"success":true},
              {"iter":2,"src":"assets/videos/bowl_iter2.mp4","steps":343,"success":true},
              {"iter":3,"src":"assets/videos/bowl_iter3.mp4","steps":317,"success":true},
              {"iter":4,"src":"assets/videos/bowl_iter4.mp4","steps":254,"success":true},
@@ -166,7 +166,7 @@
               <span class="rollout-label">Iteration&nbsp;<span id="meta-right-iter">1</span></span>
               <span class="rollout-stats">
                 <span class="badge badge-success" id="meta-right-badge" title="Successful episode">&#10003;&nbsp;success</span>
-                <span class="rollout-steps"><strong id="meta-right-steps">520</strong> steps</span>
+                <span class="rollout-steps"><strong id="meta-right-steps">518</strong> steps</span>
               </span>
             </figcaption>
           </figure>
@@ -253,20 +253,31 @@
         keeps the cost of one self-improvement iteration proportional to the size of the Q-function
         (&sim;1B parameters) rather than the BC policy (multi-billion), which is the expensive component to train.
       </p>
-      <pre class="algo"><code>D &larr; D_BC
-for iteration i = 1, 2, ... do
-    <span class="algo-cmt"># (1) Collect rollouts under Q-Planning (BC frozen)</span>
-    for task k, episode j = 1 ... M do
-        reset env, receive o_0
-        while episode not done do
-            plan iteratively with MPPI &rarr; a_{t:t+H}
-            execute a_{t:t+H}, observe r_{t+H}, o_{t+H}
-        append episode to D
-    <span class="algo-cmt"># (2) Refine Q only (BC frozen)</span>
-    for s = 1 ... S do
-        update &phi; on a minibatch from D via the Q-chunking loss
-        EMA update &phi;&#772; &larr; &eta;&phi; + (1-&eta;)&phi;&#772;
-</code></pre>
+      <figure class="algorithm" aria-labelledby="algo1-title">
+        <figcaption class="algo-header" id="algo1-title">
+          <strong>Algorithm 1</strong> <span class="algo-sep">&middot;</span> Q-Planning self-improvement
+        </figcaption>
+        <ol class="algo-body">
+          <li><span class="kw">Input:</span> BC dataset $\mathcal{D}_{\text{BC}}$, frozen policy $\pi^{\text{BC}}$, Q-function $Q_\phi$, target $Q_{\bar\phi}$</li>
+          <li>$\mathcal{D} \leftarrow \mathcal{D}_{\text{BC}}$</li>
+          <li><span class="kw">for</span> iteration $i = 1, 2, \ldots$ <span class="kw">do</span></li>
+          <li class="ind-1"><span class="cmt">// Phase 1 &mdash; collect rollouts under Q-Planning (BC frozen)</span></li>
+          <li class="ind-1"><span class="kw">for</span> task $k \in \mathcal{T}$, episode $j = 1, \ldots, M$ <span class="kw">do</span></li>
+          <li class="ind-2">Reset environment; receive $\mathbf{o}_0$</li>
+          <li class="ind-2"><span class="kw">while</span> episode not done <span class="kw">do</span></li>
+          <li class="ind-3">Plan with temporal-smoothed MPPI to obtain $\bar{\mathbf{a}}^{(T)}_{t:t+H}$</li>
+          <li class="ind-3">Execute $\bar{\mathbf{a}}^{(T)}_{t:t+H}$; observe $r_{t+H},\; \mathbf{o}_{t+H}$</li>
+          <li class="ind-2"><span class="kw">end while</span></li>
+          <li class="ind-2">Append full episode to replay buffer $\mathcal{D}$</li>
+          <li class="ind-1"><span class="kw">end for</span></li>
+          <li class="ind-1"><span class="cmt">// Phase 2 &mdash; refine only $Q_\phi$ (BC frozen)</span></li>
+          <li class="ind-1"><span class="kw">for</span> $s = 1, \ldots, S$ <span class="kw">do</span></li>
+          <li class="ind-2">Sample minibatch $\mathcal{B} \sim \mathcal{D}$ and update: $\phi \leftarrow \phi - \alpha\, \nabla_\phi\, \mathcal{L}(\phi;\mathcal{B})$</li>
+          <li class="ind-2">EMA target update: $\bar{\phi} \leftarrow \eta\, \phi + (1 - \eta)\, \bar{\phi}$</li>
+          <li class="ind-1"><span class="kw">end for</span></li>
+          <li><span class="kw">end for</span></li>
+        </ol>
+      </figure>
     </section>
 
     <section id="results">

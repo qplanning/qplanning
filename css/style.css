@@ -412,20 +412,69 @@ figcaption strong { color: var(--ink); }
 .tldr-list li { margin-bottom: 12px; }
 .tldr-list li::marker { color: var(--accent); font-weight: 700; }
 
-/* ============ Algorithm block ============ */
-.algo {
-  background: var(--bg-alt);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 6px;
-  padding: 14px 18px;
-  font-family: var(--mono);
-  font-size: 13.5px;
-  line-height: 1.6;
+/* ============ Algorithm block (paper-style pseudocode) ============ */
+.algorithm {
+  margin: 24px 0 32px;
+  padding: 12px 6px 14px;
+  border-top: 1.8px solid var(--ink);
+  border-bottom: 1.8px solid var(--ink);
+  background: var(--bg);
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.75;
   overflow-x: auto;
-  white-space: pre;
 }
-.algo-cmt { color: var(--muted); font-style: italic; }
+.algo-header {
+  padding: 0 6px 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--ink);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--ink);
+  text-align: left;
+}
+.algo-header .algo-sep { color: var(--muted); margin: 0 4px; }
+.algo-body {
+  counter-reset: algoline;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.algo-body > li {
+  position: relative;
+  padding-left: 38px;
+  padding-right: 6px;
+  min-height: 1.75em;
+}
+.algo-body > li::before {
+  counter-increment: algoline;
+  content: counter(algoline) ":";
+  position: absolute;
+  left: 0;
+  width: 28px;
+  text-align: right;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  top: 0.35em;
+}
+.algo-body .ind-1 { padding-left: 62px; }
+.algo-body .ind-2 { padding-left: 86px; }
+.algo-body .ind-3 { padding-left: 110px; }
+.algo-body .kw {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+.algo-body .cmt {
+  color: var(--muted);
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 13.5px;
+}
+.algo-body .cmt .katex { color: var(--muted); }
 
 /* ============ Results table ============ */
 .table-wrap {
