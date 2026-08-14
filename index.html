@@ -282,10 +282,10 @@
 
       <h3 id="benchmarks">Benchmark results</h3>
       <p>
-        Offline &mdash; with no environment interaction &mdash; Q-Planning improves over the frozen
-        FastWAM BC policy on 4 of 5 benchmarks (+1.4pp on the LIBERO aggregate, +4.8pp on RoboTwin).
-        Online self-improvement then lifts <em>every</em> benchmark, including bimanual RoboTwin,
-        while shortening episodes on all five.
+        Before any environment interaction, Q-Planning already improves over the frozen FastWAM BC
+        policy on 4 of 5 benchmarks (+1.4pp on the LIBERO aggregate). Ten iterations of
+        self-improvement then lift <em>every</em> benchmark &mdash; including the bimanual RoboTwin
+        suite, 83.8&nbsp;&rarr;&nbsp;91.4% &mdash; and shorten episodes on all five.
       </p>
 
       <div class="table-wrap">
@@ -334,21 +334,22 @@
             <tr>
               <td>RoboTwin (47 tasks)</td>
               <td>83.2</td><td>220</td>
-              <td class="hl-col hl-col-offline">88.0</td><td class="hl-col hl-col-offline">231</td>
+              <td class="hl-col hl-col-offline">83.8</td><td class="hl-col hl-col-offline">279</td>
               <td class="hl-col hl-col-online"><strong>91.4</strong></td><td class="hl-col hl-col-online">232</td>
             </tr>
             <tr class="mean-row">
               <td>Mean</td>
               <td>92.1</td><td>&mdash;</td>
-              <td class="hl-col hl-col-offline">94.2</td><td class="hl-col hl-col-offline">&mdash;</td>
+              <td class="hl-col hl-col-offline">93.4</td><td class="hl-col hl-col-offline">&mdash;</td>
               <td class="hl-col hl-col-online"><strong>97.6</strong></td><td class="hl-col hl-col-online">&mdash;</td>
             </tr>
           </tbody>
         </table>
       </div>
       <p class="table-note">
-        Offline and online columns both use Q-Planning; only the online one collects rollouts and
-        fine-tunes $Q$. Online values are taken after ten self-improvement iterations.
+        Both Q-Planning columns use the same frozen BC policy; only the online one collects rollouts
+        and fine-tunes $Q$. The offline column is iteration&nbsp;0 of the self-improvement run and the
+        online column is iteration&nbsp;10, so each row compares like with like.
       </p>
 
       <h3 id="baselines">Online self-improvement on LIBERO-10</h3>
