@@ -598,7 +598,6 @@
   // ---------- (2) failure modes: one BC rollout vs the Q-Planning recovery ----------
   function initFailureModes(RW) {
     const switchEl = document.getElementById('mode-switch');
-    const descEl = document.getElementById('cs-mode-desc');
     const failVideo = document.getElementById('cs-fail-video');
     const failFrame = document.getElementById('cs-fail-frame');
     const failCap = document.getElementById('cs-fail-caption');
@@ -618,8 +617,6 @@
     tracked.push(failRec, recRec);
 
     const showMode = (mode) => {
-      descEl.innerHTML = mode.desc;
-
       failVideo.src = VID_DIR + mode.clip + '.mp4';
       failVideo.poster = VID_DIR + mode.clip + '.jpg';
       failCap.innerHTML = mode.label;
@@ -630,6 +627,12 @@
       recCap.innerHTML = rec.caption + ' &middot; ' + RW.tasks[mode.task].label;
       recRec.successAt = rec.successAt;
 
+      // Force a reload so readyState drops to 0. Without this, switching mode
+      // can leave the previous clip's readyState (and duration) briefly in
+      // place, and the group would size its cycle from the wrong clip.
+      failVideo.load();
+      recVideo.load();
+
       // Both clips run off one clock and restart together: a side-by-side
       // comparison is only meaningful if the two rollouts start at the same
       // moment. The shorter clip freezes on its last frame until the wrap.
@@ -637,11 +640,13 @@
       schedule();
     };
 
+    const wanted = new URLSearchParams(location.search).get('mode');
+    const startIdx = Math.max(0, RW.failureModes.findIndex(m => m.id === wanted));
     RW.failureModes.forEach((mode, i) => {
       const b = document.createElement('button');
-      b.className = 'mode-chip' + (i === 0 ? ' is-active' : '');
+      b.className = 'mode-chip' + (i === startIdx ? ' is-active' : '');
       b.setAttribute('role', 'tab');
-      b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+      b.setAttribute('aria-selected', i === startIdx ? 'true' : 'false');
       b.textContent = mode.label;
       b.addEventListener('click', () => {
         switchEl.querySelectorAll('.mode-chip').forEach(c => {
@@ -654,7 +659,7 @@
       });
       switchEl.appendChild(b);
     });
-    showMode(RW.failureModes[0]);
+    showMode(RW.failureModes[startIdx]);
   }
 
   // ---------- (3) multi-series line charts ----------

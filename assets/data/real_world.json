@@ -39,35 +39,30 @@
       "id": "insert",
       "task": "wallet",
       "label": "Card misaligned at the slot",
-      "desc": "The card meets the wallet lip off-centre.",
       "clip": "wallet_fail_insert"
     },
     {
       "id": "under",
       "task": "wallet",
       "label": "Card pushed under the wallet",
-      "desc": "The card slides beneath the wallet rather than into it.",
       "clip": "wallet_fail_under"
     },
     {
       "id": "topple",
       "task": "cups",
       "label": "Base cup knocked over",
-      "desc": "The carried cup clips the base cup and topples it.",
       "clip": "cups_fail_topple"
     },
     {
       "id": "drop",
       "task": "cups",
       "label": "Cup dropped mid-transfer",
-      "desc": "The grasp releases early; both cups end up on their sides.",
       "clip": "cups_fail_drop"
     },
     {
       "id": "noplace",
       "task": "cups",
       "label": "Cup knocked out of reach",
-      "desc": "Arm knocks cup away from distribution / reaching distance.",
       "clip": "cups_fail_noplace"
     }
   ],

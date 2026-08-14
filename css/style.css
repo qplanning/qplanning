@@ -861,12 +861,6 @@ footer a:hover { color: var(--accent); }
   font-family: var(--sans);
   font-size: 13px;
 }
-.cs-mode-desc {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 16px;
-}
 .cs-slot .rollout-label { font-size: 13px; color: var(--muted); }
 .cs-note {
   margin-top: 12px;
