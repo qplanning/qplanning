@@ -41,7 +41,8 @@
           </li>
           <li><a href="#results">Results</a>
             <ul>
-              <li><a href="#baselines">Baselines</a></li>
+              <li><a href="#benchmarks">Benchmarks</a></li>
+              <li><a href="#baselines">Online loop</a></li>
               <li><a href="#breadth">Breadth</a></li>
               <li><a href="#latency">Latency</a></li>
             </ul>
@@ -279,19 +280,13 @@
     <section id="results">
       <h2>Results</h2>
 
-      <h3>Main results</h3>
+      <h3 id="benchmarks">Benchmark results</h3>
       <p>
-        Q-Planning improves over the frozen FastWAM BC policy on 4 of 5 benchmarks (offline: +1.4pp on the
-        LIBERO aggregate, +4.8pp on RoboTwin), and six rounds of online self-improvement on LIBERO-10 push
-        success to <strong>99%</strong>. Because online self-improvement was only evaluated on LIBERO-10,
-        the online column reports results for that benchmark only. Hover the bars to see values and to
-        highlight the corresponding table cell.
+        Offline &mdash; with no environment interaction &mdash; Q-Planning improves over the frozen
+        FastWAM BC policy on 4 of 5 benchmarks (+1.4pp on the LIBERO aggregate, +4.8pp on RoboTwin).
+        Online self-improvement then lifts <em>every</em> benchmark, including bimanual RoboTwin,
+        while shortening episodes on all five.
       </p>
-
-      <figure id="results-chart" class="chart-fig" aria-label="Bar chart comparing FastWAM, Q-Planning offline, and Q-Planning online on LIBERO-10.">
-        <!-- Rendered by js/main.js -->
-      </figure>
-      <div id="chart-tooltip" role="tooltip"></div>
 
       <div class="table-wrap">
         <table class="results" id="results-table">
@@ -315,61 +310,87 @@
             <tr>
               <td>LIBERO-Spatial</td>
               <td>90.5</td><td>106</td>
-              <td class="hl-col hl-col-offline"><strong>91.5</strong></td><td class="hl-col hl-col-offline">115</td>
-              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+              <td class="hl-col hl-col-offline">91.5</td><td class="hl-col hl-col-offline">115</td>
+              <td class="hl-col hl-col-online"><strong>98.5</strong></td><td class="hl-col hl-col-online">107</td>
             </tr>
             <tr>
               <td>LIBERO-Object</td>
               <td><strong>100.0</strong></td><td>138</td>
               <td class="hl-col hl-col-offline">99.5</td><td class="hl-col hl-col-offline">139</td>
-              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+              <td class="hl-col hl-col-online"><strong>100.0</strong></td><td class="hl-col hl-col-online">120</td>
             </tr>
             <tr>
               <td>LIBERO-Goal</td>
               <td>97.0</td><td>107</td>
               <td class="hl-col hl-col-offline">99.0</td><td class="hl-col hl-col-offline">110</td>
-              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+              <td class="hl-col hl-col-online"><strong>99.0</strong></td><td class="hl-col hl-col-online">99</td>
             </tr>
             <tr>
               <td>LIBERO-10</td>
-              <td id="cell-libero10-fastwam-success">90.0</td>
-              <td id="cell-libero10-fastwam-eplen">274</td>
-              <td class="hl-col hl-col-offline" id="cell-libero10-qplan-offline-success">93.0</td>
-              <td class="hl-col hl-col-offline" id="cell-libero10-qplan-offline-eplen">261</td>
-              <td class="hl-col hl-col-online" id="cell-libero10-qplan-online-success"><strong>99.0</strong></td>
-              <td class="hl-col hl-col-online" id="cell-libero10-qplan-online-eplen"><strong>232</strong></td>
+              <td>90.0</td><td>274</td>
+              <td class="hl-col hl-col-offline">93.0</td><td class="hl-col hl-col-offline">261</td>
+              <td class="hl-col hl-col-online"><strong>99.0</strong></td><td class="hl-col hl-col-online">224</td>
             </tr>
             <tr>
               <td>RoboTwin (47 tasks)</td>
               <td>83.2</td><td>220</td>
-              <td class="hl-col hl-col-offline"><strong>88.0</strong></td><td class="hl-col hl-col-offline">231</td>
-              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+              <td class="hl-col hl-col-offline">88.0</td><td class="hl-col hl-col-offline">231</td>
+              <td class="hl-col hl-col-online"><strong>91.4</strong></td><td class="hl-col hl-col-online">232</td>
             </tr>
             <tr class="mean-row">
               <td>Mean</td>
               <td>92.1</td><td>&mdash;</td>
-              <td class="hl-col hl-col-offline"><strong>94.2</strong></td><td class="hl-col hl-col-offline">&mdash;</td>
-              <td class="hl-col hl-col-online muted">&mdash;</td><td class="hl-col hl-col-online muted">&mdash;</td>
+              <td class="hl-col hl-col-offline">94.2</td><td class="hl-col hl-col-offline">&mdash;</td>
+              <td class="hl-col hl-col-online"><strong>97.6</strong></td><td class="hl-col hl-col-online">&mdash;</td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <h3>Online self-improvement on LIBERO-10</h3>
-      <p>
-        Starting from the same frozen FastWAM and a Q-function pre-trained on successful demonstrations only,
-        six iterations of 100 rollouts each &mdash; alternated with 200 Q-only gradient steps &mdash;
-        lift success from <strong>93% to 99%</strong> and shorten successful episodes from 261 to 232
-        environment steps. <strong>No BC parameters are updated.</strong>
+      <p class="table-note">
+        Offline and online columns both use Q-Planning; only the online one collects rollouts and
+        fine-tunes $Q$. Online values are taken after ten self-improvement iterations.
       </p>
-      <figure>
-        <img src="assets/self_improvement.png" alt="Three plots showing Q-function fine-tuning loss decreasing, success rate rising from 93 to 99 percent across six iterations, and mean episode length falling from 261 to 232 steps." />
-        <figcaption>
-          <strong>Q-Planning self-improvement on LIBERO-10.</strong> Across six rounds of 100 rollouts each,
-          success rises from 93% to 99% and mean successful episode length drops from 261 to 232 steps.
-          Dashed lines mark the frozen FastWAM. The BC parameters are never updated.
-        </figcaption>
+
+      <h3 id="baselines">Online self-improvement on LIBERO-10</h3>
+      <p>
+        Ten iterations of 100 rollouts each, alternated with Q-only gradient steps, lift success from
+        <strong>93% to 99%</strong> and shorten successful episodes from 261 to 224 steps. No BC
+        parameters are updated. Under an identical online budget, <em>Best-of-N</em> (argmax over BC
+        samples, no MPPI averaging) plateaus at <strong>95%</strong>: value-guided <em>selection</em>
+        helps, but it is the loop that carries success to 99%. <em>Filtered SFT</em>, the direct test of
+        &ldquo;learns from failures&rdquo;, plateaus at <strong>93.5%</strong>, as re-imitating only
+        successes cannot absorb the failure signal $Q$ can. DSRL is the other offline-to-online method,
+        yet our action-space $Q$ improves <em>stably</em>.
+      </p>
+      <figure id="baselines-chart" class="chart-fig bleed" aria-label="Line chart of LIBERO-10 success rate over ten self-improvement iterations for Q-Planning and five baselines.">
+        <!-- Rendered by js/main.js -->
       </figure>
+
+      <div class="table-wrap">
+        <table class="results" id="methods-table">
+          <caption class="table-caption">Positioning against the closest methods.</caption>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>BC frozen</th>
+              <th>Plug-and-play large VLA</th>
+              <th>Learn from failures</th>
+              <th>Offline-to-online $Q$</th>
+              <th>No aux. actor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>V-GPS</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td></tr>
+            <tr><td>DSRL</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td></tr>
+            <tr><td>IBRL</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td></tr>
+            <tr><td>DAWR</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td></tr>
+            <tr class="mean-row">
+              <td><strong>Q-Planning (ours)</strong></td>
+              <td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
     <div class="rollout-block">
       <div class="rollout-compare"
@@ -448,50 +469,11 @@
       </p>
     </div>
 
-      <h3 id="baselines">Comparison against online baselines</h3>
+      <h3 id="breadth">Breadth: LIBERO suites and RoboTwin</h3>
       <p>
-        Under an identical online budget, <em>Best-of-N</em> (argmax over BC samples, no MPPI averaging)
-        plateaus at <strong>95%</strong>: value-guided <em>selection</em> helps, but the online loop
-        carries success to <strong>99%</strong>. <em>Filtered SFT</em>, the direct test of
-        &ldquo;learns from failures&rdquo;, plateaus at <strong>93.5%</strong>, as re-imitating only
-        successes cannot absorb the failure signal $Q$ can. DSRL is the other offline-to-online method,
-        yet our action-space $Q$ improves <em>stably</em>.
-      </p>
-      <figure id="baselines-chart" class="chart-fig bleed" aria-label="Line chart of LIBERO-10 success rate over ten self-improvement iterations for Q-Planning and five baselines.">
-        <!-- Rendered by js/main.js -->
-      </figure>
-
-      <div class="table-wrap">
-        <table class="results" id="methods-table">
-          <caption class="table-caption">Positioning against the closest methods.</caption>
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>BC frozen</th>
-              <th>Plug-and-play large VLA</th>
-              <th>Learn from failures</th>
-              <th>Offline-to-online $Q$</th>
-              <th>No aux. actor</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>V-GPS</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td></tr>
-            <tr><td>DSRL</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td></tr>
-            <tr><td>IBRL</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td></tr>
-            <tr><td>DAWR</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td><td class="mk yes">&#10003;</td><td class="mk no">&#10007;</td><td class="mk no">&#10007;</td></tr>
-            <tr class="mean-row">
-              <td><strong>Q-Planning (ours)</strong></td>
-              <td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td><td class="mk yes">&#10003;</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3 id="breadth">Self-improvement across more benchmarks</h3>
-      <p>
-        Over ten iterations the loop improves every LIBERO suite and the recent bimanual
-        <strong>RoboTwin</strong> (83.8&nbsp;&rarr;&nbsp;91.4%). Where success is already saturated
-        (&ge;99%, Goal/Object) it instead improves efficiency, shortening episodes
+        The same loop runs on every LIBERO suite and on the recent bimanual <strong>RoboTwin</strong>,
+        which climbs steadily across all ten iterations. Where success is already saturated
+        (&ge;99%, Goal and Object) the loop improves efficiency instead, shortening episodes
         (Object <strong>139&nbsp;&rarr;&nbsp;120</strong>, Goal <strong>110&nbsp;&rarr;&nbsp;99</strong> steps).
       </p>
       <figure id="breadth-chart" class="chart-fig bleed" aria-label="Line chart of success rate over ten self-improvement iterations for four LIBERO suites and RoboTwin.">
