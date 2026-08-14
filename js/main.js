@@ -422,7 +422,10 @@
     return render;
   }
 
-  fetch('assets/data/real_world.json')
+  // Versioned like the css/js: this file names the clip files, so a cached
+  // copy can point at a filename that no longer exists. Bump with ?v= in
+  // index.html whenever real_world.json or a clip filename changes.
+  fetch('assets/data/real_world.json?v=4')
     .then(r => r.json())
     .then(RW => { initSelfImprovement(RW); initFailureModes(RW); initLineCharts(RW); })
     .catch(() => {
