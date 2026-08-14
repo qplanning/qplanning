@@ -361,13 +361,22 @@ point still on the axis, then walks backwards along the line until the label cle
 already placed, trying **below the line first and then above it**, and clamping to the plot edges.
 A fixed stagger is not enough: LIBERO-Goal, -Object and -Spatial all sit within ~1.5pp and collided
 until the check became a real box test with both sides available. Labels also carry a white halo
-(`paint-order: stroke fill`, 6.5px) so they stay legible where they must cross another series —
-with three saturated suites there is no placement that avoids every line. A **filled backing rect**
-was tried and removed: it hid the crossed line, but a white rectangle sitting on the shaded band and
-the gridlines was far more conspicuous than the line it was covering. At 6.5px the outlines of
-neighbouring letters merge, so a crossed line reads as interrupted by the word rather than struck
-through it. Label boxes come from `getComputedTextLength()`, which is why the SVG is appended to the
-figure *before* its contents are drawn: the method returns 0 on a detached element, and the old
+**with nothing painted behind them.** The placement search is line-aware: every drawn segment in the
+panel is collected up front, and a candidate position is only accepted if its box intersects neither
+an already-placed label nor any series polyline (segment-vs-rectangle test). At the page's own width
+that finds a clean spot for all 12 labels across the three charts, so every one is plain text.
+
+Two earlier attempts, both worse, both worth not repeating:
+- a **filled white backing rect** — hid the crossed line, but a rectangle sitting on the shaded band
+  and the gridlines was far more conspicuous than the line it covered;
+- a **blanket glyph halo** on every label — no boxes, but it paints a white outline behind text that
+  mostly isn't crossing anything.
+
+The halo survives only as a fallback: a label that the search cannot keep off a line gets
+`.lc-end.has-halo` (6.5px white `paint-order: stroke fill`, wide enough that neighbouring letter
+outlines merge). At 390px the plot is narrow enough that 1 of 12 labels needs it; on desktop, none
+do. Label boxes come from `getComputedTextLength()`, which is why the SVG is appended to the figure
+*before* its contents are drawn: the method returns 0 on a detached element, and the old
 character-count estimate was off by enough to misplace the collision test.
 
 Charts render at **1:1 CSS pixels** — `responsiveSVG()` measures the container and draws at that

@@ -928,8 +928,11 @@ table.results td.mk.no  { color: #b91c1c; }
 .lc-end {
   font-size: 17px;
   font-family: var(--sans);
-  /* white halo so a label stays legible where it crosses another series —
-     unavoidable when several suites sit within a point of each other */
+}
+/* Nothing is painted behind a label by default. The halo is added only to the
+   labels the placement search could not keep off a line — on the breadth chart
+   three suites sit within ~1.5pp and no position avoids every series. */
+.lc-end.has-halo {
   paint-order: stroke fill;
   stroke: #fff;
   stroke-width: 6.5px;

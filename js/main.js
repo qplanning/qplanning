@@ -432,7 +432,7 @@
   // Versioned like the css/js: this file names the clip files, so a cached
   // copy can point at a filename that no longer exists. Bump with ?v= in
   // index.html whenever real_world.json or a clip filename changes.
-  fetch('assets/data/real_world.json?v=17')
+  fetch('assets/data/real_world.json?v=18')
     .then(r => r.json())
     .then(RW => {
       initSelfImprovement(RW);
@@ -652,6 +652,35 @@
         });
       }
 
+      // Every drawn segment in this panel, so a label can be placed where it
+      // crosses no line at all and needs no halo behind it.
+      const segs = [];
+      mine.forEach(s => {
+        for (let i = 1; i < n; i++) {
+          const a = s.values[i - 1], b = s.values[i];
+          if (a < p.ymin || b < p.ymin || a > p.ymax || b > p.ymax) continue;
+          segs.push({ ax: x(i - 1), ay: p.y(a), bx: x(i), by: p.y(b) });
+        }
+      });
+      const segHitsBox = (g, b) => {
+        // trivial accept: an endpoint inside the box
+        if ((g.ax >= b.x0 && g.ax <= b.x1 && g.ay >= b.y0 && g.ay <= b.y1) ||
+            (g.bx >= b.x0 && g.bx <= b.x1 && g.by >= b.y0 && g.by <= b.y1)) return true;
+        // otherwise test the segment against each edge of the box
+        const cross = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+          const d = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+          if (!d) return false;
+          const t = ((x3 - x1) * (y4 - y3) - (y3 - y1) * (x4 - x3)) / d;
+          const u = ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) / d;
+          return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+        };
+        return cross(g.ax, g.ay, g.bx, g.by, b.x0, b.y0, b.x1, b.y0) ||
+               cross(g.ax, g.ay, g.bx, g.by, b.x1, b.y0, b.x1, b.y1) ||
+               cross(g.ax, g.ay, g.bx, g.by, b.x1, b.y1, b.x0, b.y1) ||
+               cross(g.ax, g.ay, g.bx, g.by, b.x0, b.y1, b.x0, b.y0);
+      };
+      const overLine = (b) => segs.some(g => segHitsBox(g, b));
+
       // Name each line directly beneath itself — no legend. Anchor on the last
       // point still on the axis, then walk backwards along the line until the
       // label clears everything already placed; a fixed stagger is not enough
@@ -664,7 +693,10 @@
 
         const cls = s === lead ? 'lc-end lc-end-strong' : 'lc-end';
         const w = measure(s.label, cls);
-        let box = null, fallback = null;
+        // Three tiers, best first: clear of both labels and lines; clear of
+        // labels only; anything on the panel. Only the middle tier needs a halo
+        // behind the text, so most labels end up sitting on bare background.
+        let box = null, noLineHit = null, fallback = null;
         outer:
         for (let tries = 0; tries <= lastIn; tries++) {
           const cand = lastIn - tries;
@@ -681,20 +713,23 @@
             }
             if (b.y0 < p.top || b.y1 > p.top + p.h_px) continue;   // stay in the panel
             if (!fallback) fallback = b;
-            const hits = placed.some(q => b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0);
-            if (!hits) { box = b; break outer; }
+            const hitsLabel = placed.some(q => b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0);
+            if (hitsLabel) continue;
+            if (!noLineHit) noLineHit = b;
+            if (!overLine(b)) { box = b; break outer; }
           }
         }
-        if (!box) box = fallback;
+        const clean = !!box;
+        if (!box) box = noLineHit || fallback;
         if (!box) return;
         placed.push(box);
-        // Glyph halo only, no backing rect: a filled rectangle sitting on the
-        // shaded band and the gridlines was more conspicuous than the line it
-        // was hiding. The halo is wide enough that neighbouring letters'
-        // outlines merge, so a crossed line still reads as interrupted rather
-        // than struck through the text.
+        // A halo only where the label had to sit on a line — on the breadth
+        // chart three suites live within ~1.5pp of each other and no placement
+        // avoids every series. Everywhere else the text is plain, with nothing
+        // painted behind it.
         svg.appendChild(svgEl('text', {
-          x: box.cx, y: box.cy, fill: s.color, 'text-anchor': box.anchor, class: cls,
+          x: box.cx, y: box.cy, fill: s.color, 'text-anchor': box.anchor,
+          class: cls + (clean ? '' : ' has-halo'),
         }, s.label));
       });
 
