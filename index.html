@@ -235,11 +235,12 @@
            \bar{a}_{t:t+H} = \sum_{n=1}^{N} w^{(n)}\, a^{(n)}_{t:t+H} $$
       </div>
       <aside class="callout">
-        <strong>The proposal distribution is a design choice, not a core part of this work.</strong>
-        The paper draws candidates with temporally-smoothed MPPI warm-started from BC; on the real robot
-        we use <a href="#latency">3-step diffusion draws</a>, which are multimodal and 3.2&times; faster.
-        Both keep the $Q$-weighted average above. The contribution is the off-policy $Q$-function and the
-        self-improvement framework around it.
+        <strong>Where the candidates come from is a design choice.</strong>
+        Any sampler works, so long as $Q_\phi$ scores its candidates and the $Q$-weighted average above is
+        what gets executed. In simulation we draw them with temporally-smoothed MPPI warm-started from the
+        BC policy. On the real robot we use <a href="#latency">3-step diffusion draws</a> instead: they are
+        multimodal rather than confined to a Gaussian envelope around the BC mean, carry fewer
+        robot-specific hyper-parameters, and run 3.2&times; faster &mdash; fast enough for real-time control.
       </aside>
 
       <h3 id="method-loop">2. Self-improvement loop</h3>
