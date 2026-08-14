@@ -432,7 +432,7 @@
   // Versioned like the css/js: this file names the clip files, so a cached
   // copy can point at a filename that no longer exists. Bump with ?v= in
   // index.html whenever real_world.json or a clip filename changes.
-  fetch('assets/data/real_world.json?v=16')
+  fetch('assets/data/real_world.json?v=17')
     .then(r => r.json())
     .then(RW => {
       initSelfImprovement(RW);
@@ -688,13 +688,11 @@
         if (!box) box = fallback;
         if (!box) return;
         placed.push(box);
-        // Opaque backing, not just the glyph halo: where a label sits on top of
-        // a line the halo still lets the line show through the gaps between
-        // letters, which reads as a strikethrough.
-        svg.appendChild(svgEl('rect', {
-          x: box.x0 - 4, y: box.y0 - 1, width: (box.x1 - box.x0) + 8,
-          height: (box.y1 - box.y0) + 2, rx: 3, class: 'lc-label-bg',
-        }));
+        // Glyph halo only, no backing rect: a filled rectangle sitting on the
+        // shaded band and the gridlines was more conspicuous than the line it
+        // was hiding. The halo is wide enough that neighbouring letters'
+        // outlines merge, so a crossed line still reads as interrupted rather
+        // than struck through the text.
         svg.appendChild(svgEl('text', {
           x: box.cx, y: box.cy, fill: s.color, 'text-anchor': box.anchor, class: cls,
         }, s.label));

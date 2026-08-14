@@ -361,12 +361,14 @@ point still on the axis, then walks backwards along the line until the label cle
 already placed, trying **below the line first and then above it**, and clamping to the plot edges.
 A fixed stagger is not enough: LIBERO-Goal, -Object and -Spatial all sit within ~1.5pp and collided
 until the check became a real box test with both sides available. Labels also carry a white halo
-(`paint-order: stroke fill`) **and an opaque backing rect** so they stay legible where they must
-cross another series — with three saturated suites there is no placement that avoids every line, and
-the halo alone still let the line show through the gaps between letters, reading as a strikethrough.
-Label boxes come from `getComputedTextLength()`, which is why the SVG is appended to the figure
-*before* its contents are drawn: the method returns 0 on a detached element, and the old
-character-count estimate was off by enough to misplace both the collision test and the backing rect.
+(`paint-order: stroke fill`, 6.5px) so they stay legible where they must cross another series —
+with three saturated suites there is no placement that avoids every line. A **filled backing rect**
+was tried and removed: it hid the crossed line, but a white rectangle sitting on the shaded band and
+the gridlines was far more conspicuous than the line it was covering. At 6.5px the outlines of
+neighbouring letters merge, so a crossed line reads as interrupted by the word rather than struck
+through it. Label boxes come from `getComputedTextLength()`, which is why the SVG is appended to the
+figure *before* its contents are drawn: the method returns 0 on a detached element, and the old
+character-count estimate was off by enough to misplace the collision test.
 
 Charts render at **1:1 CSS pixels** — `responsiveSVG()` measures the container and draws at that
 width so the SVG coordinate system *is* pixels. A fixed `viewBox` scaled all text with the container
