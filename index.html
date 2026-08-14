@@ -123,83 +123,6 @@
       </ol>
     </section>
 
-    <div class="rollout-block">
-      <div class="rollout-compare"
-           data-videos='[
-             {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":false},
-             {"iter":1,"src":"assets/videos/bowl_iter1.mp4","steps":518,"success":true},
-             {"iter":2,"src":"assets/videos/bowl_iter2.mp4","steps":343,"success":true},
-             {"iter":3,"src":"assets/videos/bowl_iter3.mp4","steps":317,"success":true},
-             {"iter":4,"src":"assets/videos/bowl_iter4.mp4","steps":254,"success":true},
-             {"iter":5,"src":"assets/videos/bowl_iter5.mp4","steps":218,"success":true}
-           ]'>
-        <div class="rollout-pair">
-          <figure class="rollout-slot rollout-left">
-            <div class="video-frame">
-              <video id="video-left"
-                     src="assets/videos/bowl_iter0.mp4"
-                     muted playsinline preload="auto"
-                     disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-            </div>
-            <figcaption class="rollout-meta" id="meta-left">
-              <span class="rollout-label">Iteration&nbsp;0 &middot; offline Q-function</span>
-              <span class="rollout-stats">
-                <span class="badge badge-failure" title="Failed episode">&#10007;&nbsp;failure</span>
-                <span class="rollout-steps"><strong>520</strong> steps</span>
-              </span>
-            </figcaption>
-          </figure>
-
-          <figure class="rollout-slot rollout-right">
-            <div class="video-frame">
-              <!-- All right-slot videos are loaded together; only the selected one is visible. -->
-              <video class="video-right" data-iter="1" src="assets/videos/bowl_iter1.mp4"
-                     muted playsinline preload="auto" disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-              <video class="video-right" data-iter="2" src="assets/videos/bowl_iter2.mp4"
-                     muted playsinline preload="auto" disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-              <video class="video-right" data-iter="3" src="assets/videos/bowl_iter3.mp4"
-                     muted playsinline preload="auto" disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-              <video class="video-right" data-iter="4" src="assets/videos/bowl_iter4.mp4"
-                     muted playsinline preload="auto" disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-              <video class="video-right" data-iter="5" src="assets/videos/bowl_iter5.mp4"
-                     muted playsinline preload="auto" disablepictureinpicture
-                     controlslist="nodownload nofullscreen noremoteplayback"></video>
-            </div>
-            <figcaption class="rollout-meta" id="meta-right">
-              <span class="rollout-label">Iteration&nbsp;<span id="meta-right-iter">1</span></span>
-              <span class="rollout-stats">
-                <span class="badge badge-success" id="meta-right-badge" title="Successful episode">&#10003;&nbsp;success</span>
-                <span class="rollout-steps"><strong id="meta-right-steps">518</strong> steps</span>
-              </span>
-            </figcaption>
-          </figure>
-        </div>
-
-        <div class="iter-slider">
-          <label for="iter-range" class="iter-slider-label">
-            Right video: iteration <strong id="iter-slider-value">1</strong>
-          </label>
-          <input type="range" id="iter-range" min="1" max="5" step="1" value="1"
-                 aria-label="Select self-improvement iteration for the right video" />
-          <div class="iter-slider-ticks" aria-hidden="true">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-          </div>
-        </div>
-      </div>
-      <p class="rollout-caption">
-        <strong>Self-improvement on <code>put_black_bowl_in_bottom_drawer_and_close</code> (LIBERO-10).</strong>
-        Left: the Q-function after supervised pre-training only (iteration&nbsp;0) fails to complete the task.
-        Right: after successive rounds of Q-only online self-improvement &mdash; the BC policy is never updated. Use the
-        slider to pick which iteration plays on the right. All clips restart together every 6.5&nbsp;s; the
-        faster iterations freeze on their final frame until the loop resets.
-      </p>
-    </div>
-
     <section id="real-robot">
       <h2>Self-improvement on a real robot</h2>
       <p class="lede">
@@ -447,6 +370,83 @@
           Dashed lines mark the frozen FastWAM. The BC parameters are never updated.
         </figcaption>
       </figure>
+
+    <div class="rollout-block">
+      <div class="rollout-compare"
+           data-videos='[
+             {"iter":0,"src":"assets/videos/bowl_iter0.mp4","steps":520,"success":false},
+             {"iter":1,"src":"assets/videos/bowl_iter1.mp4","steps":518,"success":true},
+             {"iter":2,"src":"assets/videos/bowl_iter2.mp4","steps":343,"success":true},
+             {"iter":3,"src":"assets/videos/bowl_iter3.mp4","steps":317,"success":true},
+             {"iter":4,"src":"assets/videos/bowl_iter4.mp4","steps":254,"success":true},
+             {"iter":5,"src":"assets/videos/bowl_iter5.mp4","steps":218,"success":true}
+           ]'>
+        <div class="rollout-pair">
+          <figure class="rollout-slot rollout-left">
+            <div class="video-frame">
+              <video id="video-left"
+                     src="assets/videos/bowl_iter0.mp4"
+                     muted playsinline preload="auto"
+                     disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+            </div>
+            <figcaption class="rollout-meta" id="meta-left">
+              <span class="rollout-label">Iteration&nbsp;0 &middot; offline Q-function</span>
+              <span class="rollout-stats">
+                <span class="badge badge-failure" title="Failed episode">&#10007;&nbsp;failure</span>
+                <span class="rollout-steps"><strong>520</strong> steps</span>
+              </span>
+            </figcaption>
+          </figure>
+
+          <figure class="rollout-slot rollout-right">
+            <div class="video-frame">
+              <!-- All right-slot videos are loaded together; only the selected one is visible. -->
+              <video class="video-right" data-iter="1" src="assets/videos/bowl_iter1.mp4"
+                     muted playsinline preload="auto" disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+              <video class="video-right" data-iter="2" src="assets/videos/bowl_iter2.mp4"
+                     muted playsinline preload="auto" disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+              <video class="video-right" data-iter="3" src="assets/videos/bowl_iter3.mp4"
+                     muted playsinline preload="auto" disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+              <video class="video-right" data-iter="4" src="assets/videos/bowl_iter4.mp4"
+                     muted playsinline preload="auto" disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+              <video class="video-right" data-iter="5" src="assets/videos/bowl_iter5.mp4"
+                     muted playsinline preload="auto" disablepictureinpicture
+                     controlslist="nodownload nofullscreen noremoteplayback"></video>
+            </div>
+            <figcaption class="rollout-meta" id="meta-right">
+              <span class="rollout-label">Iteration&nbsp;<span id="meta-right-iter">1</span></span>
+              <span class="rollout-stats">
+                <span class="badge badge-success" id="meta-right-badge" title="Successful episode">&#10003;&nbsp;success</span>
+                <span class="rollout-steps"><strong id="meta-right-steps">518</strong> steps</span>
+              </span>
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="iter-slider">
+          <label for="iter-range" class="iter-slider-label">
+            Right video: iteration <strong id="iter-slider-value">1</strong>
+          </label>
+          <input type="range" id="iter-range" min="1" max="5" step="1" value="1"
+                 aria-label="Select self-improvement iteration for the right video" />
+          <div class="iter-slider-ticks" aria-hidden="true">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+          </div>
+        </div>
+      </div>
+      <p class="rollout-caption">
+        <strong>Self-improvement on <code>put_black_bowl_in_bottom_drawer_and_close</code> (LIBERO-10).</strong>
+        Left: the Q-function after supervised pre-training only (iteration&nbsp;0) fails to complete the task.
+        Right: after successive rounds of Q-only online self-improvement &mdash; the BC policy is never updated. Use the
+        slider to pick which iteration plays on the right. All clips restart together every 6.5&nbsp;s; the
+        faster iterations freeze on their final frame until the loop resets.
+      </p>
+    </div>
 
       <h3 id="baselines">Comparison against online baselines</h3>
       <p>

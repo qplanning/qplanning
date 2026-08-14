@@ -505,7 +505,7 @@
 
     function drawCurveAt(taskKey, W) {
       const task = RW.tasks[taskKey];
-      const H = 330, mL = 58, mR = 58, mT = 22, mB = 54;
+      const H = 346, mL = 58, mR = 58, mT = 40, mB = 54;
       const pw = W - mL - mR, ph = H - mT - mB;
       const its = RW.iterations;
       const x = i => mL + (pw * i) / (its.length - 1);
@@ -528,6 +528,11 @@
       svg.appendChild(svgEl('text', {
         x: mL + pw / 2, y: H - 8, class: 'lc-axis', 'text-anchor': 'middle',
       }, 'Self-improvement iteration'));
+      // y-axis title sits horizontally above the axis rather than rotated
+      // beside it, so it costs no plot width
+      svg.appendChild(svgEl('text', {
+        x: 2, y: mT - 14, class: 'lc-axis-title', 'text-anchor': 'start',
+      }, 'Success rate (%)'));
       svg.appendChild(svgEl('line', { x1: mL, x2: mL + pw, y1: mT + ph, y2: mT + ph, class: 'chart-baseline' }));
 
       const path = (vals, attrs) => {
@@ -683,7 +688,7 @@
 
     const buildAt = (fig, cfg, W) => {
       const compact = W < 560;
-      const mL = 58, mR = 20, mT = 20, mB = 56, gap = 28;
+      const mL = 58, mR = 20, mT = 40, mB = 56, gap = 28;
       const panels = cfg.panels || [{ ymin: cfg.ymin, ymax: cfg.ymax, ticks: cfg.ticks, h: 1 }];
       const bodyH = cfg.height || 430;
       const totalH = bodyH * panels.reduce((a, p) => a + p.h, 0) + gap * (panels.length - 1);
@@ -736,6 +741,9 @@
       svg.appendChild(svgEl('text', {
         x: mL + pw / 2, y: H - 10, class: 'lc-axis', 'text-anchor': 'middle',
       }, 'Self-improvement iteration'));
+      svg.appendChild(svgEl('text', {
+        x: 2, y: panels[0].top - 14, class: 'lc-axis-title', 'text-anchor': 'start',
+      }, 'Success rate (%)'));
 
       // Draw only the in-range part of each series. A series that drops below
       // the axis floor exits the plot and stops, rather than running flat

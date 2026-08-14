@@ -204,7 +204,7 @@ main {
 }
 
 /* ============ Sections & headings ============ */
-section { margin: 56px 0; scroll-margin-top: calc(var(--nav-h) + 12px); }
+section { margin: 88px 0; scroll-margin-top: calc(var(--nav-h) + 12px); }
 section > :first-child { margin-top: 0; }
 
 h2 {
@@ -212,8 +212,8 @@ h2 {
   font-weight: 600;
   font-size: 24px;
   letter-spacing: -0.01em;
-  margin: 0 0 20px;
-  padding-bottom: 8px;
+  margin: 0 0 28px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
 h3 {
@@ -221,12 +221,12 @@ h3 {
   font-weight: 600;
   font-size: 20px;      /* must sit clearly above the 17-18px body copy */
   color: var(--ink);
-  margin: 52px 0 14px;  /* the air is what separates one subsection from the next */
+  margin: 72px 0 16px;  /* the air is what separates one subsection from the next */
   letter-spacing: -0.005em;
 }
 /* a subsection heading that opens a section needs no extra gap above it */
 h2 + h3,
-.lede + h3 { margin-top: 28px; }
+.lede + h3 { margin-top: 32px; }
 p { margin: 0 0 16px; }
 .lede { color: var(--muted); font-style: italic; }
 
@@ -267,7 +267,7 @@ figcaption strong { color: var(--ink); }
 
 /* ============ Rollout video comparison ============ */
 .rollout-block {
-  margin: 56px 0;
+  margin: 64px 0;
 }
 .rollout-compare {
   margin: 0 0 12px;
@@ -1026,6 +1026,13 @@ table.results td.mk.no  { color: #b91c1c; }
   body { font-size: 18px; }
   h2 { font-size: 27px; }   /* keep a clear 18 / 21 / 27 ladder */
   h3 { font-size: 21px; }
+  section { margin: 104px 0; }
+  h3 { margin-top: 84px; }
+  h2 + h3, .lede + h3 { margin-top: 34px; }
   .lc-tick, .lc-axis, .lc-value { font-size: 17px; }
+  .lc-axis-title { font-size: 16px; }
   .lc-end { font-size: 18px; }
 }
+/* y-axis title: horizontal, above the axis, so it uses vertical space rather
+   than eating into the plot width */
+.lc-axis-title { font-size: 15px; font-weight: 600; fill: var(--muted); font-family: var(--sans); }
