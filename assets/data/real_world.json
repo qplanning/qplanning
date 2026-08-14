@@ -66,8 +66,8 @@
     {
       "id": "noplace",
       "task": "cups",
-      "label": "Placement never completed",
-      "desc": "The cup reaches position but is never released.",
+      "label": "Cup knocked out of reach",
+      "desc": "Arm knocks cup away from distribution / reaching distance.",
       "clip": "cups_fail_noplace"
     }
   ],
