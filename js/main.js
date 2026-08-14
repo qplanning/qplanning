@@ -61,129 +61,9 @@
     sections.forEach(s => observer.observe(s));
   }
 
-  // ================= Rollout video comparison =================
-  const rollout = document.querySelector('.rollout-compare');
-  if (rollout) {
-    const meta = (() => {
-      try { return JSON.parse(rollout.getAttribute('data-videos')); }
-      catch { return []; }
-    })();
-    const metaByIter = new Map(meta.map(m => [m.iter, m]));
-
-    const master = document.getElementById('video-left');
-    const rightVideos = Array.from(rollout.querySelectorAll('.video-right'));
-    const slider = document.getElementById('iter-range');
-    const iterLabel = document.getElementById('iter-slider-value');
-    const metaIter = document.getElementById('meta-right-iter');
-    const metaSteps = document.getElementById('meta-right-steps');
-    const metaBadge = document.getElementById('meta-right-badge');
-
-    // Only the master and the one selected right-hand clip ever decode. The
-    // other four are hidden behind CSS visibility, so playing them was four
-    // wasted decoders running for the whole session.
-    let simVisible = true;
-    let activeIter = 1;
-    const activeRight = () => rightVideos.find(v => Number(v.dataset.iter) === activeIter);
-
-    const playAll = () => {
-      if (!simVisible) return;
-      [master, activeRight()].forEach(v => {
-        if (!v) return;
-        v.muted = true;
-        const p = v.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      });
-    };
-    const pauseAll = () => [master, ...rightVideos].forEach(v => v.pause());
-
-    if ('IntersectionObserver' in window) {
-      const block = rollout.closest('.rollout-block') || rollout;
-      new IntersectionObserver((entries) => {
-        entries.forEach(e => {
-          simVisible = e.isIntersecting;
-          if (simVisible) playAll(); else pauseAll();
-        });
-      }, { rootMargin: '150px 0px' }).observe(block);
-    }
-
-    // ---- Master-driven sync ----
-    // Master is the longest video (iter0). When it wraps back to the start,
-    // reset every other video to 0 so they restart in lockstep. Shorter clips
-    // simply run out and freeze on their last frame until the next wrap.
-    master.loop = true;
-    rightVideos.forEach(v => { v.loop = false; });
-
-    let lastMasterT = 0;
-    const resetAll = () => {
-      // Rewind them all so a later selection starts from the right place, but
-      // only resume playback on the visible one.
-      rightVideos.forEach(v => { try { v.currentTime = 0; } catch {} });
-      const a = activeRight();
-      if (a && simVisible) {
-        const p = a.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      }
-    };
-
-    master.addEventListener('timeupdate', () => {
-      const t = master.currentTime;
-      // Wrap detected: currentTime jumped backwards.
-      if (t + 0.05 < lastMasterT) resetAll();
-      lastMasterT = t;
-    });
-
-    // Some browsers fire `seeked` when a loop wraps; treat as wrap too.
-    master.addEventListener('seeked', () => {
-      if (master.currentTime < 0.1) resetAll();
-    });
-
-    // ---- Slider: pick which right-hand iteration is visible ----
-    const setActiveIter = (iter) => {
-      activeIter = iter;
-      rightVideos.forEach(v => {
-        const on = Number(v.dataset.iter) === iter;
-        v.classList.toggle('is-active', on);
-        if (on) {
-          // catch the newly-shown clip up to the master's position, then play
-          try { v.currentTime = Math.min(master.currentTime, Math.max(0, (v.duration || 0) - 0.05)); } catch {}
-          if (simVisible) {
-            const p = v.play();
-            if (p && typeof p.catch === 'function') p.catch(() => {});
-          }
-        } else {
-          v.pause();
-        }
-      });
-      iterLabel.textContent = iter;
-      metaIter.textContent = iter;
-      const m = metaByIter.get(iter);
-      if (m) {
-        metaSteps.textContent = m.steps;
-        metaBadge.classList.toggle('badge-success',  m.success);
-        metaBadge.classList.toggle('badge-failure', !m.success);
-        metaBadge.title = m.success ? 'Successful episode' : 'Failed episode';
-        metaBadge.innerHTML = m.success ? '✓&nbsp;success' : '✗&nbsp;failure';
-      }
-    };
-    setActiveIter(1);
-
-    slider.addEventListener('input', (e) => {
-      setActiveIter(Number(e.target.value));
-    });
-
-    // Start playback once the master's metadata is ready.
-    if (master.readyState >= 1) playAll();
-    else master.addEventListener('loadedmetadata', playAll, { once: true });
-
-    // Pause/resume based on tab visibility to avoid runaway drift when hidden.
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        [master, ...rightVideos].forEach(v => v.pause());
-      } else {
-        playAll();
-      }
-    });
-  }
+  // The old left/right + slider rollout comparison lived here. The LIBERO-10
+  // rollouts now use the same iteration strip as the real-robot section, built
+  // by initLibero10() below, so the two self-improvement figures read the same.
 
   // ================= Real-robot sections =================
   // Data-driven: everything below reads assets/data/real_world.json so the
@@ -197,54 +77,182 @@
   };
   const VID_DIR = 'assets/videos/real/';
 
+  // ================= Margin notes =================
+  // Definitions that would bloat a caption live out here instead: a marked term
+  // in the text, and the note itself parked in the right-hand gutter when the
+  // window has one, or as a card under the marker when it does not — a phone
+  // has no gutter, and a note that only exists in the margin is a note phone
+  // readers never get. The marker is a filled numeral rather than a bare
+  // superscript because a footnote nobody notices is worse than no footnote.
+  const NOTES = new Map();
+  const NOTE_IDS = new Map();
+  let noteUid = 0;
+  const stripTags = (h) => h.replace(/<[^>]*>/g, '');
+  const note = (n, term, body) => {
+    // Keyed by body so a redraw (resize, task switch) reuses the same entry
+    // instead of growing the map on every render.
+    let id = NOTE_IDS.get(body);
+    if (!id) {
+      id = 'sn-' + (++noteUid);
+      NOTE_IDS.set(body, id);
+      NOTES.set(id, body);
+    }
+    return '<span class="sn"><button type="button" class="sn-ref" data-note="' + id + '" ' +
+      'aria-expanded="false">' + term +
+      '<span class="sn-mark" aria-hidden="true">' + n + '</span>' +
+      // read out inline for assistive tech, so the note never depends on hover
+      '<span class="sr-only"> (note: ' + stripTags(body) + ')</span>' +
+      '</button></span>';
+  };
+
+  (() => {
+    const card = document.createElement('div');
+    card.className = 'sn-card';
+    card.setAttribute('role', 'note');
+    document.body.appendChild(card);
+
+    let openRef = null, pinned = false, hideT = 0;
+    const stopHide = () => { if (hideT) { clearTimeout(hideT); hideT = 0; } };
+
+    const place = (btn) => {
+      const r = btn.getBoundingClientRect();
+      const main = document.querySelector('main');
+      const m = main ? main.getBoundingClientRect() : { right: window.innerWidth };
+      const gutter = window.innerWidth - m.right;
+      if (gutter >= 250) {
+        // true sidenote: out in the empty right gutter, aligned to its marker
+        card.classList.add('is-margin');
+        card.style.width = Math.min(270, gutter - 34) + 'px';
+        card.style.left = (window.scrollX + m.right + 26) + 'px';
+        card.style.top = (window.scrollY + r.top - 3) + 'px';
+      } else {
+        card.classList.remove('is-margin');
+        const w = Math.min(330, window.innerWidth - 28);
+        card.style.width = w + 'px';
+        const left = Math.min(Math.max(14, r.left - 24), window.innerWidth - w - 14);
+        card.style.left = (window.scrollX + left) + 'px';
+        card.style.top = (window.scrollY + r.bottom + 9) + 'px';
+      }
+    };
+
+    const show = (btn, pin) => {
+      stopHide();
+      if (openRef && openRef !== btn) {
+        openRef.setAttribute('aria-expanded', 'false');
+        pinned = false;               // moving to another note drops the pin
+      }
+      openRef = btn;
+      if (pin) pinned = true;
+      card.innerHTML = NOTES.get(btn.dataset.note) || '';
+      card.classList.add('is-on');
+      btn.setAttribute('aria-expanded', 'true');
+      place(btn);
+    };
+    const hide = () => {
+      stopHide();
+      card.classList.remove('is-on');
+      if (openRef) openRef.setAttribute('aria-expanded', 'false');
+      openRef = null;
+      pinned = false;
+    };
+    // Schedule once and let it run: re-arming on every pointerover would push
+    // the deadline forward for as long as the mouse kept moving, so the note
+    // would never close.
+    const hideSoon = () => {
+      if (pinned || hideT) return;
+      hideT = setTimeout(() => { hideT = 0; hide(); }, 160);
+    };
+
+    const refOf = (t) => (t && t.closest ? t.closest('.sn-ref') : null);
+
+    document.addEventListener('pointerover', (e) => {
+      const btn = refOf(e.target);
+      if (btn) { if (e.pointerType !== 'touch') show(btn, false); return; }
+      if (card.contains(e.target)) { stopHide(); return; }   // reaching for the card
+      if (openRef) hideSoon();
+    });
+    // Keyboard activation arrives as a click on a <button>, so this covers
+    // Enter/Space too. No focusin handler: focus lands before click on a mouse
+    // press, and pinning there made the click read as a second tap and close it.
+    document.addEventListener('click', (e) => {
+      const btn = refOf(e.target);
+      if (btn) {
+        e.preventDefault();
+        if (openRef === btn && pinned) hide(); else show(btn, true);
+        return;
+      }
+      if (!card.contains(e.target)) hide();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !openRef) return;
+      const ref = openRef;
+      hide();
+      ref.focus();
+    });
+    // The card is positioned in page coordinates, so it rides along with the
+    // content on scroll; only a resize can invalidate which side it sits on.
+    window.addEventListener('resize', () => { if (openRef) place(openRef); });
+  })();
+
   // Shared registry of clips whose status ring the RAF loop drives.
   const tracked = [];
 
   // One RAF loop for every tracked clip on the page.
   // Visibility gating. Decoding every clip on the page at once is what makes
-  // this feel heavy, so each section only plays while it is actually on
-  // screen; offscreen clips are paused and skipped by the status loop.
-  let siVisible = true, csVisible = true;
+  // this feel heavy, so each group of clips only plays while its section is
+  // actually on screen; offscreen clips are paused and skipped by the status
+  // loop. Group ids: 'si' (real robot), 'cs' (recovery), 'l10' (LIBERO-10).
+  const GROUPS = {
+    si:  { section: 'real-robot', visible: true, clock: null },
+    cs:  { section: 'recovery',   visible: true, clock: null },
+    l10: { section: 'l10-stage',  visible: true, clock: null },
+  };
+  const anyVisible = () => Object.values(GROUPS).some(g => g.visible);
   const setSectionActive = (which, on) => {
-    if (which === 'si') siVisible = on; else csVisible = on;
-    for (const c of tracked) {
-      const mine = which === 'si' ? c.group === 'si' : c.group === 'cs';
-      if (!mine) continue;
-      if (on) {
-        const p = c.video.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      } else {
-        c.video.pause();
-      }
-    }
-    const clock = which === 'si' ? siClock : csClock;
-    if (clock) (on ? clock.resume() : clock.pause());
+    const g = GROUPS[which];
+    if (!g) return;
+    g.visible = on;
+    // Only the pause side acts on the clips directly. Coming back into view we
+    // just resume the group clock and let its tick restart whichever clips
+    // still have time left: play() on a clip that already reached its end
+    // rewinds it to 0, which would break the lockstep on the way back.
+    if (!on) for (const c of tracked) { if (c.group === which) c.video.pause(); }
+    if (g.clock) (on ? g.clock.resume() : g.clock.pause());
     schedule();
   };
 
   if ('IntersectionObserver' in window) {
+    const byEl = new Map();
     const io = new IntersectionObserver((entries) => {
       entries.forEach(e => {
-        const which = e.target.id === 'real-robot' ? 'si' : 'cs';
-        setSectionActive(which, e.isIntersecting);
+        const which = byEl.get(e.target);
+        if (which) setSectionActive(which, e.isIntersecting);
       });
     }, { rootMargin: '150px 0px' });
-    ['real-robot', 'recovery'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
+    Object.entries(GROUPS).forEach(([key, g]) => {
+      const el = document.getElementById(g.section);
+      if (!el) return;
+      byEl.set(el, key);
+      io.observe(el);
     });
   }
 
   let rafPending = false;
   const tickStatus = () => {
-    if (siClock && siVisible) siClock.tick();
-    if (csClock && csVisible) csClock.tick();
+    for (const g of Object.values(GROUPS)) {
+      if (g.clock && g.visible) g.clock.tick();
+    }
     for (const c of tracked) {
-      if (c.group === 'si' && !siVisible) continue;
-      if (c.group === 'cs' && !csVisible) continue;
+      if (!GROUPS[c.group] || !GROUPS[c.group].visible) continue;
       const t = c.video.currentTime || 0;
       const dur = c.video.duration || 0;
-      const done = c.successAt != null && t >= c.successAt;
+      // Latch completion for the rest of the cycle. Chrome reclaims the decoder
+      // of a clip that has finished — readyState drops to HAVE_METADATA and
+      // currentTime resets to 0 — which without the latch un-flips the ring
+      // back to amber and sends the readout to zero. The latch is cleared when
+      // the group restarts.
+      if (c.successAt != null && t >= c.successAt) c._latched = true;
+      const done = !!c._latched;
 
       // Every write below is guarded: this runs at 60fps across every clip, and
       // unconditional style/text writes here were causing layout on each frame.
@@ -257,7 +265,7 @@
       }
       if (c.bar) {
         const denom = c.successAt != null ? c.successAt : (dur || 1);
-        const f = Math.min(1, t / denom);
+        const f = done ? 1 : Math.min(1, t / denom);
         if (c._f === undefined || Math.abs(f - c._f) > 0.004) {
           c._f = f;
           // scaleX composites; animating width would relayout the frame.
@@ -265,7 +273,11 @@
         }
       }
       if (c.timeEl) {
-        const label = done ? c.successAt.toFixed(1) + 's ✓' : t.toFixed(1) + 's';
+        // Real-robot clips read out wall-clock seconds; the LIBERO clips read
+        // out environment steps, which is the unit the paper reports.
+        const label = c.fmt
+          ? c.fmt(done ? c.successAt : t, done)
+          : (done ? c.successAt.toFixed(1) + 's ✓' : t.toFixed(1) + 's');
         if (label !== c._label) { c._label = label; c.timeEl.textContent = label; }
       }
     }
@@ -274,7 +286,7 @@
   };
   const schedule = () => {
     if (rafPending || document.hidden || !tracked.length) return;
-    if (!siVisible && !csVisible) return;   // nothing on screen — stop the loop
+    if (!anyVisible()) return;   // nothing on screen — stop the loop
     rafPending = true;
     requestAnimationFrame(tickStatus);
   };
@@ -285,9 +297,9 @@
   // point is comparing which rollout finishes first. Clips shorter than the
   // group freeze on their last frame; everything restarts together after a
   // short hold so the finish order stays readable.
-  let siClock = null, csClock = null;
-  const syncGroup = (videos, isVisible, holdSec = 1.4) => {
+  const syncGroup = (videos, groupKey, holdSec = 1.4) => {
     if (!videos.length) return null;
+    const isVisible = () => GROUPS[groupKey].visible;
     videos.forEach(v => { v.muted = true; v.loop = false; });
     const g = { videos, t0: 0, span: 0, hold: holdSec, started: false, pausedAt: 0 };
 
@@ -302,6 +314,8 @@
       g.span = videos.reduce((m, v) => Math.max(m, v.duration || 0), 0);
       g.t0 = performance.now();
       g.started = true;
+      // new cycle: every clip is unfinished again
+      for (const c of tracked) { if (c.group === groupKey) c._latched = false; }
       videos.forEach(v => {
         try { v.currentTime = 0; } catch {}
         // Only actually decode if the section is on screen — metadata can land
@@ -333,7 +347,10 @@
         if (Math.abs((v.currentTime || 0) - target) > 0.35) {
           try { v.currentTime = target; } catch {}
         }
-        if (isVisible() && elapsed < dur && v.paused) {
+        // Only (re)start a clip that genuinely has time left. play() on a clip
+        // sitting at its end rewinds it to 0, so the margins here matter.
+        const left = dur && elapsed < dur - 0.1 && (v.currentTime || 0) < dur - 0.1;
+        if (isVisible() && v.paused && left) {
           const p = v.play();
           if (p && typeof p.catch === 'function') p.catch(() => {});
         }
@@ -348,8 +365,9 @@
     const frame = document.createElement('div');
     frame.className = 'video-frame status-frame';
     const video = document.createElement('video');
-    video.src = VID_DIR + src + '.mp4';
-    video.poster = VID_DIR + src + '.jpg';
+    const dir = opts.dir || VID_DIR;
+    video.src = dir + src + '.mp4';
+    video.poster = dir + src + '.jpg';
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
@@ -380,25 +398,9 @@
     return { fig, frame, video, bar, timeEl };
   };
 
-  const STRIP_GAP = 10;   // must match .si-strip gap
-
   // Draw at 1:1 CSS pixels. A fixed viewBox scales all text with the
   // container, so a 13px label became ~9px on a narrow window; here the
   // coordinate system *is* pixels, so font sizes match the body copy exactly.
-  function miniLegend(items) {
-    const el = document.createElement('div');
-    el.className = 'chart-legend';
-    items.forEach(it => {
-      const sp = document.createElement('span');
-      const i = document.createElement('i');
-      i.style.borderTopColor = it.color;
-      i.style.borderTopStyle = it.dash ? 'dashed' : 'solid';
-      sp.append(i, document.createTextNode(it.label));
-      el.appendChild(sp);
-    });
-    return el;
-  }
-
   function responsiveSVG(fig, draw) {
     let lastW = 0;
     const render = () => {
@@ -425,14 +427,386 @@
   // Versioned like the css/js: this file names the clip files, so a cached
   // copy can point at a filename that no longer exists. Bump with ?v= in
   // index.html whenever real_world.json or a clip filename changes.
-  fetch('assets/data/real_world.json?v=4')
+  fetch('assets/data/real_world.json?v=15')
     .then(r => r.json())
-    .then(RW => { initSelfImprovement(RW); initFailureModes(RW); initLineCharts(RW); })
+    .then(RW => {
+      initSelfImprovement(RW);
+      initFailureModes(RW);
+      initLibero10(RW);
+      initBreadthChart(RW);
+    })
     .catch(() => {
       // Served from file:// or the JSON is missing — leave the static markup be.
       const s = document.getElementById('si-caption');
       if (s) s.textContent = 'Interactive rollouts require the page to be served over HTTP.';
     });
+
+  // ---------- iteration strip, shared by the real-robot and LIBERO figures ----------
+  // Both self-improvement figures are the same object: one clip per iteration,
+  // all restarting together, above a success-vs-iteration curve whose markers
+  // turn green as the clips finish.
+  const mountStrip = ({ strip, group, clips, dir, labelFor, fmtFor, onStatus, onHover }) => {
+    for (let i = tracked.length - 1; i >= 0; i--) {
+      if (tracked[i].group === group) tracked.splice(i, 1);
+    }
+    strip.innerHTML = '';
+    const cells = [];
+    clips.forEach((c, idx) => {
+      const clip = mkClip(c.src, { dir, label: labelFor(c, idx), showTime: true });
+      if (c.iter === 0) clip.fig.classList.add('is-baseline');
+      strip.appendChild(clip.fig);
+      tracked.push({
+        video: clip.video, frame: clip.frame, bar: clip.bar, timeEl: clip.timeEl,
+        successAt: c.successAt, group,
+        fmt: fmtFor ? fmtFor(c) : null,
+        onStatus: (done) => onStatus(idx, done),
+      });
+      cells.push({ clip, iter: c.iter, idx });
+      if (onHover) {
+        clip.fig.addEventListener('mouseenter', () => onHover(idx, true));
+        clip.fig.addEventListener('mouseleave', () => onHover(idx, false));
+      }
+    });
+    GROUPS[group].clock = syncGroup(cells.map(c => c.clip.video), group);
+    schedule();
+    return cells;
+  };
+
+  // ---------- one line-chart renderer for every figure on the page ----------
+  // The real-robot curve and the two simulation curves go through this same
+  // function, so they share margins, tick typography, the shaded gap between a
+  // method and its closest baseline, direct end-of-line labels and the hover
+  // readout. A chart is one or more stacked panels sharing an x-axis: splitting
+  // lets tightly-clustered leaders get a zoomed band of their own while the
+  // unstable baselines keep a full-range band, since one shared axis would
+  // squash the 93.5 / 95 / 99 gaps that are the actual result.
+  function makeChart(fig, cfg) {
+    // `state` outlives each redraw: the status loop and the strip hover hold on
+    // to it, while `dots` and `show`/`clear` are replaced every time the figure
+    // is re-rendered at a new width.
+    const state = { dots: [], show: () => {}, clear: () => {} };
+    responsiveSVG(fig, (W) => drawChart(fig, cfg, state, W));
+    return state;
+  }
+
+  function drawChart(fig, cfg, state, W) {
+    const mL = 58, mR = 20, mT = 48, mB = 56, gapPx = 28;
+    const panels = cfg.panels || [{ ymin: cfg.ymin, ymax: cfg.ymax, ticks: cfg.ticks, h: 1 }];
+    const bodyH = cfg.height || 430;
+    const totalH = bodyH * panels.reduce((a, p) => a + p.h, 0) + gapPx * (panels.length - 1);
+    const H = totalH + mT + mB;
+    const pw = W - mL - mR;
+    const its = cfg.iterations;
+    const n = its.length;
+    const x = i => mL + (pw * i) / (n - 1);
+
+    let top = mT;
+    const scale = cfg.scale || 'linear';
+    panels.forEach(p => {
+      p.top = top; p.h_px = bodyH * p.h;
+      if (scale === 'log-error') {
+        // log on the distance from 100%: expands the near-saturated region
+        const e = v => Math.max(100 - v, 0.05);
+        const l0 = Math.log10(e(p.ymin)), l1 = Math.log10(e(p.ymax));
+        p.y = v => p.top + p.h_px * ((Math.log10(e(v)) - l1) / (l0 - l1));
+      } else {
+        p.y = v => p.top + p.h_px * (1 - (v - p.ymin) / (p.ymax - p.ymin));
+      }
+      top += p.h_px + gapPx;
+    });
+    const lastPanel = panels[panels.length - 1];
+
+    const svg = svgEl('svg', {
+      width: W, height: H, viewBox: `0 0 ${W} ${H}`,
+      class: 'lc-svg', role: 'img', 'aria-label': cfg.aria || '',
+    });
+    // Attach before drawing: getComputedTextLength only reports on a rendered
+    // element, and label widths guessed from character counts were off by
+    // enough to let two labels collide or leave a backing rect too short.
+    fig.innerHTML = '';
+    fig.appendChild(svg);
+    const measure = (txt, cls) => {
+      const t = svgEl('text', { x: -9999, y: -9999, class: cls }, txt);
+      svg.appendChild(t);
+      const w = t.getComputedTextLength ? t.getComputedTextLength() : 0;
+      t.remove();
+      return w || txt.length * 7.6;
+    };
+
+    panels.forEach(p => {
+      p.ticks.forEach(t => {
+        svg.appendChild(svgEl('line', { x1: mL, x2: mL + pw, y1: p.y(t), y2: p.y(t), class: 'chart-grid' }));
+        svg.appendChild(svgEl('text', {
+          x: mL - 10, y: p.y(t) + 5, class: 'lc-tick', 'text-anchor': 'end',
+        }, (Number.isInteger(t) ? t : t.toFixed(1)) + '%'));
+      });
+      svg.appendChild(svgEl('line', {
+        x1: mL, x2: mL + pw, y1: p.top + p.h_px, y2: p.top + p.h_px, class: 'chart-baseline',
+      }));
+      if (p.title) svg.appendChild(svgEl('text', { x: mL, y: p.top - 6, class: 'lc-panel-title' }, p.title));
+    });
+
+    its.forEach(i => svg.appendChild(svgEl('text', {
+      x: x(i), y: lastPanel.top + lastPanel.h_px + 24, class: 'lc-tick', 'text-anchor': 'middle',
+    }, String(i))));
+    svg.appendChild(svgEl('text', {
+      x: mL + pw / 2, y: H - 10, class: 'lc-axis', 'text-anchor': 'middle',
+    }, 'Self-improvement iteration'));
+
+    // Shade the gap between the method and its closest baseline — that gap is
+    // the result, and it is the same visual device in every figure.
+    const byKey = new Map(cfg.series.map(s => [s.key, s]));
+    if (cfg.band) {
+      const p = panels[0];
+      const A = byKey.get(cfg.band[0]), B = byKey.get(cfg.band[1]);
+      if (A && B) {
+        const clamp = v => Math.max(p.ymin, Math.min(p.ymax, v));
+        let d = A.values.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + p.y(clamp(v))).join(' ');
+        for (let i = B.values.length - 1; i >= 0; i--) d += ' L' + x(i) + ' ' + p.y(clamp(B.values[i]));
+        svg.appendChild(svgEl('path', { d: d + ' Z', fill: A.color, opacity: 0.07 }));
+      }
+    }
+
+    // Draw only the in-range part of each series. A series that drops below the
+    // axis floor exits the plot and stops, rather than running flat along the
+    // bottom where it would read as sitting at the floor value.
+    const seriesPath = (vals, p) => {
+      let d = '', pen = false;
+      for (let i = 0; i < vals.length; i++) {
+        const v = vals[i], inRange = v >= p.ymin;
+        if (inRange) {
+          d += (pen ? 'L' : 'M') + x(i) + ' ' + p.y(Math.min(v, p.ymax)) + ' ';
+          pen = true;
+        } else {
+          if (pen) {
+            const pv = vals[i - 1];
+            const f = (pv - p.ymin) / (pv - v);
+            d += 'L' + (x(i - 1) + (x(i) - x(i - 1)) * f) + ' ' + p.y(p.ymin) + ' ';
+          }
+          pen = false;
+        }
+      }
+      return d.trim();
+    };
+
+    const lead = byKey.get(cfg.markers) || cfg.series[0];
+    const halos = [];
+    state.dots = [];
+
+    panels.forEach(p => {
+      const mine = cfg.series.filter(s => !p.keys || p.keys.includes(s.key));
+      mine.forEach(s => {
+        const attrs = {
+          d: seriesPath(s.values, p), fill: 'none', stroke: s.color, 'stroke-width': s.width,
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+        };
+        if (s.dash) attrs['stroke-dasharray'] = s.dash;
+        svg.appendChild(svgEl('path', attrs));
+      });
+
+      // Secondary series get small plain markers; the emphasised series gets
+      // the markers the status loop turns green as each clip finishes.
+      mine.filter(s => s !== lead && cfg.plainMarkers).forEach(s => {
+        s.values.forEach((v, i) => {
+          if (v >= p.ymin && v <= p.ymax) {
+            svg.appendChild(svgEl('circle', { cx: x(i), cy: p.y(v), r: 3.5, fill: s.color }));
+          }
+        });
+      });
+      if (mine.includes(lead)) {
+        lead.values.forEach((v, i) => {
+          if (v < p.ymin) return;
+          const c = svgEl('circle', {
+            cx: x(i), cy: p.y(Math.min(v, p.ymax)), r: cfg.markerR || 4,
+            fill: lead.color, class: 'si-dot-active',
+          });
+          svg.appendChild(c);
+          state.dots[i] = c;
+        });
+      }
+
+      const placed = [];
+      const LH = 20;   // line height at 17px
+
+      // Value labels on the emphasised series. 'all' suits a five-point curve;
+      // 'ends' keeps an eleven-point curve from turning into a wall of numbers.
+      if (cfg.valueLabels && mine.includes(lead)) {
+        const idxs = cfg.valueLabels === 'all'
+          ? lead.values.map((_, i) => i)
+          : [0, lead.values.length - 1];
+        idxs.forEach(i => {
+          const v = lead.values[i];
+          if (v < p.ymin) return;
+          const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
+          const cx = x(i) + (i === 0 ? 10 : i === n - 1 ? -2 : 0);
+          const cy = p.y(Math.min(v, p.ymax)) - 15;
+          svg.appendChild(svgEl('text', { x: cx, y: cy, class: 'lc-value', 'text-anchor': anchor }, v + '%'));
+          const w = measure(v + '%', 'lc-value');
+          const x0 = anchor === 'end' ? cx - w : anchor === 'start' ? cx : cx - w / 2;
+          placed.push({ x0, x1: x0 + w, y0: cy - LH * 0.75, y1: cy + LH * 0.25 });
+        });
+      }
+
+      // Name each line directly beneath itself — no legend. Anchor on the last
+      // point still on the axis, then walk backwards along the line until the
+      // label clears everything already placed; a fixed stagger is not enough
+      // when two long names sit at nearly the same height.
+      const mineOrdered = mine.slice().sort((a, b) => (a === lead ? -1 : b === lead ? 1 : 0));
+      mineOrdered.forEach(s => {
+        let lastIn = -1;
+        for (let i = 0; i < n; i++) if (s.values[i] >= p.ymin && s.values[i] <= p.ymax) lastIn = i;
+        if (lastIn < 0) return;
+
+        const cls = s === lead ? 'lc-end lc-end-strong' : 'lc-end';
+        const w = measure(s.label, cls);
+        let box = null, fallback = null;
+        outer:
+        for (let tries = 0; tries <= lastIn; tries++) {
+          const cand = lastIn - tries;
+          for (const side of [26, -16]) {
+            const anchor = cand === n - 1 ? 'end' : cand === 0 ? 'start' : 'middle';
+            const cx = x(cand);
+            const x0 = anchor === 'end' ? cx - w : anchor === 'start' ? cx : cx - w / 2;
+            const cy = p.y(s.values[cand]) + side;
+            let b = { x0, x1: x0 + w, y0: cy - LH * 0.75, y1: cy + LH * 0.25, anchor, cx, cy };
+            if (b.x1 > mL + pw) {
+              b = { ...b, anchor: 'end', cx: mL + pw, x0: mL + pw - w, x1: mL + pw };
+            } else if (b.x0 < mL) {
+              b = { ...b, anchor: 'start', cx: mL, x0: mL, x1: mL + w };
+            }
+            if (b.y0 < p.top || b.y1 > p.top + p.h_px) continue;   // stay in the panel
+            if (!fallback) fallback = b;
+            const hits = placed.some(q => b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0);
+            if (!hits) { box = b; break outer; }
+          }
+        }
+        if (!box) box = fallback;
+        if (!box) return;
+        placed.push(box);
+        // Opaque backing, not just the glyph halo: where a label sits on top of
+        // a line the halo still lets the line show through the gaps between
+        // letters, which reads as a strikethrough.
+        svg.appendChild(svgEl('rect', {
+          x: box.x0 - 4, y: box.y0 - 1, width: (box.x1 - box.x0) + 8,
+          height: (box.y1 - box.y0) + 2, rx: 3, class: 'lc-label-bg',
+        }));
+        svg.appendChild(svgEl('text', {
+          x: box.cx, y: box.cy, fill: s.color, 'text-anchor': box.anchor, class: cls,
+        }, s.label));
+      });
+
+      // one hover halo per series per panel, parked off-screen until needed
+      mine.forEach(s => {
+        const h = svgEl('circle', { cx: -99, cy: -99, r: 6.5, class: 'lc-halo', stroke: s.color });
+        svg.appendChild(h);
+        halos.push({ el: h, s, p });
+      });
+    });
+
+    // ---- hover readout ----
+    const guide = svgEl('line', {
+      x1: -99, x2: -99, y1: panels[0].top, y2: lastPanel.top + lastPanel.h_px, class: 'lc-guide',
+    });
+    svg.appendChild(guide);
+
+    // The y-axis title sits horizontally above the axis rather than rotated
+    // beside it, so it costs no plot width — and it is HTML rather than SVG
+    // text so it can carry a margin note saying what a success rate actually
+    // counts. Absolutely positioned over the figure, which is `position:
+    // relative`; the SVG is drawn at 1:1 so these are the same coordinates.
+    const yTitle = document.createElement('div');
+    yTitle.className = 'lc-ytitle';
+    yTitle.style.top = '0px';
+    yTitle.innerHTML = cfg.yNote
+      ? note(1, 'Success rate (%)', cfg.yNote)
+      : 'Success rate (%)';
+    fig.appendChild(yTitle);
+    // Sit the title just above the topmost tick label, not at a fixed offset
+    // from the plot top. On the log-error chart the first gridline is ~74px
+    // below the plot top, which left the title stranded well above the numbers
+    // it labels; on a linear 0-100 chart the two coincide.
+    const p0 = panels[0];
+    const topTickY = p0.y(Math.max.apply(null, p0.ticks)) - 7;   // approx label top
+    const titleH = yTitle.offsetHeight || 20;
+    const titleTop = Math.max(2, topTickY - 6 - titleH);
+    yTitle.style.top = titleTop + 'px';
+    const titleBottom = titleTop + titleH;
+
+    const tip = document.createElement('div');
+    tip.className = 'lc-tip';
+    fig.appendChild(tip);
+
+    if (cfg.caption) {
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = cfg.caption;
+      fig.appendChild(cap);
+    }
+
+    let shown = -1;
+    const clear = () => {
+      if (shown < 0) return;
+      shown = -1;
+      guide.setAttribute('x1', -99); guide.setAttribute('x2', -99);
+      halos.forEach(h => { h.el.setAttribute('cx', -99); h.el.setAttribute('cy', -99); });
+      tip.classList.remove('is-on');
+      if (cfg.onHover) cfg.onHover(-1);
+    };
+    const show = (i) => {
+      if (i < 0) { clear(); return; }
+      if (i === shown) return;
+      shown = i;
+      guide.setAttribute('x1', x(i)); guide.setAttribute('x2', x(i));
+      let topY = Infinity;
+      halos.forEach(h => {
+        const v = h.s.values[i];
+        if (v == null || v < h.p.ymin || v > h.p.ymax) {
+          h.el.setAttribute('cx', -99); h.el.setAttribute('cy', -99);
+        } else {
+          const cy = h.p.y(v);
+          h.el.setAttribute('cx', x(i)); h.el.setAttribute('cy', cy);
+          if (cy < topY) topY = cy;
+        }
+      });
+      tip.innerHTML =
+        '<b>Iteration ' + its[i] + '</b>' +
+        cfg.series.map(s =>
+          '<span><i style="background:' + s.color + '"></i>' + s.label +
+          '<em>' + s.values[i] + '%</em></span>').join('');
+      // Anchor the card to the data, not to the top of the plot. Parked at the
+      // top it overhung the figure and sat on the y-axis title — the one thing
+      // up there the reader needs to be able to click.
+      const half = (tip.offsetWidth || 184) / 2;
+      tip.style.left = Math.max(half + 2, Math.min(W - half - 2, x(i))) + 'px';
+      // Prefer sitting above the point; when there is not room without running
+      // into the y-axis title band, flip under it instead of stacking on top.
+      const th = tip.offsetHeight || 70;
+      const anchor = topY === Infinity ? panels[0].top + 40 : topY;
+      const topLimit = titleBottom + 6;
+      let ty = anchor - 16;
+      if (ty - th < topLimit) ty = anchor + 16 + th;
+      tip.style.top = Math.min(ty, H - 6) + 'px';
+      tip.classList.add('is-on');
+      if (cfg.onHover) cfg.onHover(i);
+    };
+    state.show = show;
+    state.clear = clear;
+
+    // One listener on the svg beats eleven hit-rects, and the svg is drawn at
+    // 1:1 CSS pixels so clientX maps straight onto the plot coordinates.
+    svg.addEventListener('pointermove', (ev) => {
+      const r = svg.getBoundingClientRect();
+      const px = ev.clientX - r.left;
+      const py = ev.clientY - r.top;
+      // Bounded to the plot body, not the whole SVG. The band above the first
+      // gridline belongs to the y-axis title and its note; firing the readout
+      // up there put a card over the very control being reached for.
+      if (py < panels[0].top - 8) { clear(); return; }
+      if (py > lastPanel.top + lastPanel.h_px + 32) { clear(); return; }
+      if (px < mL - 24 || px > mL + pw + 24) { clear(); return; }
+      show(Math.max(0, Math.min(n - 1, Math.round(((px - mL) / pw) * (n - 1)))));
+    });
+    svg.addEventListener('pointerleave', clear);
+  }
 
   // ---------- (1) real-robot self-improvement strip ----------
   function initSelfImprovement(RW) {
@@ -442,145 +816,49 @@
     if (!strip) return;
 
     let cells = [];
-    let dots = [];
+    let chart = null;
 
     const render = (taskKey) => {
       const task = RW.tasks[taskKey];
-      // drop previously tracked clips
-      for (let i = tracked.length - 1; i >= 0; i--) {
-        if (tracked[i].group === 'si') tracked.splice(i, 1);
-      }
-      strip.innerHTML = '';
-      cells = [];
 
-      task.clips.forEach((c, idx) => {
-        const isBase = c.iter === 0;
-        const clip = mkClip(c.src, {
-          label: isBase
-            ? '<span class="si-iter">Iteration&nbsp;0</span><br/>frozen BC'
-            : '<span class="si-iter">Iteration&nbsp;' + c.iter + '</span>',
-          showTime: true,
-        });
-        if (isBase) clip.fig.classList.add('is-baseline');
-        strip.appendChild(clip.fig);
-        const rec = {
-          video: clip.video, frame: clip.frame, bar: clip.bar,
-          timeEl: clip.timeEl, successAt: c.successAt, group: 'si',
-          onStatus: (done) => {
-            const d = dots[idx];
-            if (d) d.setAttribute('fill', done ? '#22c55e' : '#4338ca');
-          },
-        };
-        tracked.push(rec);
-        cells.push({ clip, iter: c.iter, idx });
-
-        clip.fig.addEventListener('mouseenter', () => highlight(idx, true));
-        clip.fig.addEventListener('mouseleave', () => highlight(idx, false));
+      chart = makeChart(chartFig, {
+        iterations: RW.iterations,
+        series: [
+          { key: 'qp',  label: 'Q-Planning',       color: '#4338ca', width: 3, dash: '',    values: task.qplanning },
+          { key: 'sft', label: 'SFT on successes', color: '#9ca3af', width: 2, dash: '4 3', values: task.sft },
+        ],
+        height: 300,
+        ymin: 0, ymax: 100, ticks: [0, 20, 40, 60, 80, 100],
+        band: ['qp', 'sft'],
+        markers: 'qp', markerR: 5.5, plainMarkers: true,
+        valueLabels: 'all',
+        yNote: 'Fraction of 20 evaluation seeds in which the task is completed.',
+        aria: 'Success rate against self-improvement iteration for ' + task.label,
+        onHover: (i) => cells.forEach(c => c.clip.fig.classList.toggle('is-hi', c.idx === i)),
       });
 
-      siClock = syncGroup(cells.map(c => c.clip.video), () => siVisible);
-      drawCurve(taskKey);
+      cells = mountStrip({
+        strip, group: 'si', clips: task.clips, dir: VID_DIR,
+        labelFor: (c) => c.iter === 0
+          ? '<span class="si-iter">Iteration&nbsp;0</span><br/>frozen BC'
+          : '<span class="si-iter">Iteration&nbsp;' + c.iter + '</span>',
+        onStatus: (idx, done) => {
+          const d = chart.dots[idx];
+          if (d) d.setAttribute('fill', done ? '#22c55e' : '#4338ca');
+        },
+        onHover: (idx, on) => (on ? chart.show(idx) : chart.clear()),
+      });
 
+      // No KaTeX delimiters in here: auto-render already ran before this is injected.
       capEl.innerHTML =
-        '<strong>' + task.label + ': ' + task.headline + ' over five iterations.</strong> ' +
-        task.blurb +
-        // No KaTeX delimiters here: auto-render already ran before this is injected.
-        ' Each iteration fine-tunes only <em>Q</em> on 20 episodes; the BC policy is never updated. ' +
-        'Clips restart together and turn green on task completion, so the order they turn green is ' +
-        'the order they finished.';
+        '<strong>' + task.label + ': ' + task.headline +
+        ' over five iterations of the self-improvement loop.</strong> ' +
+        'Each iteration fine-tunes only <em>Q</em>, both on successes and failures. The grey line is ' +
+        note(2, 'SFT on successes',
+          'Supervised finetuning on successful autonomously collected episodes.') +
+        '. Clips restart together and turn green on completion, so the order they turn green is the ' +
+        'order they finished.';
     };
-
-    const highlight = (idx, on) => {
-      const d = dots[idx];
-      if (d) d.setAttribute('r', on ? 7 : 4.5);
-    };
-
-    // Place labels at their ideal y, then push apart so none overlap.
-    function deoverlap(items, minGap) {
-      items.sort((a, b) => a.y - b.y);
-      for (let i = 1; i < items.length; i++) {
-        if (items[i].y - items[i - 1].y < minGap) items[i].y = items[i - 1].y + minGap;
-      }
-      return items;
-    }
-
-    function drawCurve(taskKey) {
-      responsiveSVG(chartFig, (W) => drawCurveAt(taskKey, W));
-    }
-
-    function drawCurveAt(taskKey, W) {
-      const task = RW.tasks[taskKey];
-      const H = 346, mL = 58, mR = 58, mT = 40, mB = 54;
-      const pw = W - mL - mR, ph = H - mT - mB;
-      const its = RW.iterations;
-      const x = i => mL + (pw * i) / (its.length - 1);
-      const y = v => mT + ph * (1 - v / 100);
-
-      const svg = svgEl('svg', {
-        width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'lc-svg', role: 'img',
-        'aria-label': 'Success rate against self-improvement iteration for ' + task.label,
-      });
-
-      for (const t of [0, 20, 40, 60, 80, 100]) {
-        svg.appendChild(svgEl('line', { x1: mL, x2: mL + pw, y1: y(t), y2: y(t), class: 'chart-grid' }));
-        svg.appendChild(svgEl('text', { x: mL - 10, y: y(t) + 5, class: 'lc-tick', 'text-anchor': 'end' }, t + '%'));
-      }
-      its.forEach(i => {
-        svg.appendChild(svgEl('text', {
-          x: x(i), y: mT + ph + 24, class: 'lc-tick', 'text-anchor': 'middle',
-        }, String(i)));
-      });
-      svg.appendChild(svgEl('text', {
-        x: mL + pw / 2, y: H - 8, class: 'lc-axis', 'text-anchor': 'middle',
-      }, 'Self-improvement iteration'));
-      // y-axis title sits horizontally above the axis rather than rotated
-      // beside it, so it costs no plot width
-      svg.appendChild(svgEl('text', {
-        x: 2, y: mT - 14, class: 'lc-axis-title', 'text-anchor': 'start',
-      }, 'Success rate (%)'));
-      svg.appendChild(svgEl('line', { x1: mL, x2: mL + pw, y1: mT + ph, y2: mT + ph, class: 'chart-baseline' }));
-
-      const path = (vals, attrs) => {
-        const d = vals.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v)).join(' ');
-        svg.appendChild(svgEl('path', Object.assign({ d, fill: 'none' }, attrs)));
-      };
-      // shade the gap between the two curves — that gap is the result
-      const band = task.qplanning.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v)).join(' ') +
-        ' ' + task.sft.map((v, i) => 'L' + x(task.sft.length - 1 - i) + ' ' + y(task.sft[task.sft.length - 1 - i])).join(' ') + ' Z';
-      svg.appendChild(svgEl('path', { d: band, fill: '#4338ca', opacity: 0.07 }));
-
-      path(task.sft, { stroke: '#9ca3af', 'stroke-width': 2, 'stroke-dasharray': '4 3' });
-      path(task.qplanning, { stroke: '#4338ca', 'stroke-width': 3, 'stroke-linejoin': 'round' });
-
-      task.sft.forEach((v, i) => svg.appendChild(svgEl('circle', { cx: x(i), cy: y(v), r: 3.5, fill: '#9ca3af' })));
-      dots = task.qplanning.map((v, i) => {
-        const c = svgEl('circle', { cx: x(i), cy: y(v), r: 5.5, fill: '#4338ca', class: 'si-dot-active' });
-        svg.appendChild(c);
-        return c;
-      });
-      task.qplanning.forEach((v, i) => {
-        svg.appendChild(svgEl('text', {
-          x: x(i) + (i === 0 ? 10 : 0), y: y(v) - 15,
-          class: 'lc-value', 'text-anchor': i === 0 ? 'start' : 'middle',
-        }, v + '%'));
-      });
-
-      // direct labels at the end of each line, instead of a detached legend
-      // Sit each series label just beneath its own line, so the plot can use
-      // the full width and still line up with the videos.
-      const last = task.qplanning.length - 1;
-      svg.appendChild(svgEl('text', {
-        x: x(last), y: y(task.qplanning[last]) + 30, fill: '#4338ca',
-        class: 'lc-end lc-end-strong', 'text-anchor': 'end',
-      }, 'Q-Planning'));
-      svg.appendChild(svgEl('text', {
-        x: x(last), y: y(task.sft[last]) + 28, fill: '#8a8a8a',
-        class: 'lc-end', 'text-anchor': 'end',
-      }, 'SFT on successes'));
-
-      chartFig.innerHTML = '';
-      chartFig.appendChild(svg);
-    }
 
     const chips = Array.from(document.querySelectorAll('.task-chip'));
     const select = (taskKey) => {
@@ -639,7 +917,7 @@
       // Both clips run off one clock and restart together: a side-by-side
       // comparison is only meaningful if the two rollouts start at the same
       // moment. The shorter clip freezes on its last frame until the wrap.
-      csClock = syncGroup([failVideo, recVideo], () => csVisible);
+      GROUPS.cs.clock = syncGroup([failVideo, recVideo], 'cs');
       schedule();
     };
 
@@ -665,216 +943,68 @@
     showMode(RW.failureModes[startIdx]);
   }
 
-  // ---------- (3) multi-series line charts ----------
-  // Spread labels vertically so none collide, then keep the stack inside the plot.
-  function deoverlapLabels(items, minGap, top, bottom) {
-    items.sort((a, b) => a.y - b.y);
-    for (let i = 1; i < items.length; i++) {
-      if (items[i].y - items[i - 1].y < minGap) items[i].y = items[i - 1].y + minGap;
-    }
-    const overflow = items[items.length - 1].y - bottom;
-    if (overflow > 0) items.forEach(it => { it.y -= overflow; });
-    if (items[0].y < top) {
-      const shift = top - items[0].y;
-      items.forEach(it => { it.y += shift; });
-    }
-    return items;
-  }
+  // ---------- (3) LIBERO-10: the same strip-over-curve figure, in simulation ----------
+  function initLibero10(RW) {
+    const strip = document.getElementById('l10-strip');
+    const chartFig = document.getElementById('baselines-chart');
+    if (!chartFig) return;
 
-  function initLineCharts(RW) {
-    // A chart is one or more stacked panels sharing an x-axis. Splitting lets
-    // the tightly-clustered leaders get a zoomed band of their own while the
-    // unstable baselines keep a full-range band — one shared axis would
-    // squash the 93.5 / 95 / 99 gaps that are the actual result.
-    const build = (figId, cfg) => {
-      const fig = document.getElementById(figId);
-      if (!fig) return;
-      responsiveSVG(fig, (W) => buildAt(fig, cfg, W));
-    };
+    const L = RW.libero10;
+    let cells = [];
 
-    const buildAt = (fig, cfg, W) => {
-      const compact = W < 560;
-      const mL = 58, mR = 20, mT = 40, mB = 56, gap = 28;
-      const panels = cfg.panels || [{ ymin: cfg.ymin, ymax: cfg.ymax, ticks: cfg.ticks, h: 1 }];
-      const bodyH = cfg.height || 430;
-      const totalH = bodyH * panels.reduce((a, p) => a + p.h, 0) + gap * (panels.length - 1);
-      const H = totalH + mT + mB;
-      const pw = W - mL - mR;
-      const its = cfg.iterations;
-      const x = i => mL + (pw * i) / (its.length - 1);
-
-      let top = mT;
-      const scale = cfg.scale || 'linear';
-      panels.forEach(p => {
-        p.top = top; p.h_px = bodyH * p.h;
-        if (scale === 'log') {
-          // plain log on success rate
-          const l0 = Math.log10(p.ymin), l1 = Math.log10(p.ymax);
-          p.y = v => p.top + p.h_px * (1 - (Math.log10(Math.max(v, 1e-6)) - l0) / (l1 - l0));
-        } else if (scale === 'log-error') {
-          // log on the distance from 100%: expands the near-saturated region
-          const e = v => Math.max(100 - v, 0.05);
-          const l0 = Math.log10(e(p.ymin)), l1 = Math.log10(e(p.ymax));
-          p.y = v => p.top + p.h_px * ((Math.log10(e(v)) - l1) / (l0 - l1));
-        } else {
-          p.y = v => p.top + p.h_px * (1 - (v - p.ymin) / (p.ymax - p.ymin));
-        }
-        top += p.h_px + gap;
-      });
-      const lastPanel = panels[panels.length - 1];
-
-      const svg = svgEl('svg', {
-        width: W, height: H, viewBox: `0 0 ${W} ${H}`,
-        class: 'lc-svg', role: 'img', 'aria-label': cfg.aria,
-      });
-      panels.forEach(p => {
-        p.ticks.forEach(t => {
-          svg.appendChild(svgEl('line', { x1: mL, x2: mL + pw, y1: p.y(t), y2: p.y(t), class: 'chart-grid' }));
-          svg.appendChild(svgEl('text', {
-            x: mL - 10, y: p.y(t) + 5, class: 'lc-tick', 'text-anchor': 'end',
-          }, (Number.isInteger(t) ? t : t.toFixed(1)) + '%'));
-        });
-        svg.appendChild(svgEl('line', {
-          x1: mL, x2: mL + pw, y1: p.top + p.h_px, y2: p.top + p.h_px, class: 'chart-baseline',
-        }));
-        if (p.title) {
-          svg.appendChild(svgEl('text', { x: mL, y: p.top - 6, class: 'lc-panel-title' }, p.title));
-        }
-      });
-      its.forEach(i => svg.appendChild(svgEl('text', {
-        x: x(i), y: lastPanel.top + lastPanel.h_px + 24, class: 'lc-tick', 'text-anchor': 'middle',
-      }, String(i))));
-      svg.appendChild(svgEl('text', {
-        x: mL + pw / 2, y: H - 10, class: 'lc-axis', 'text-anchor': 'middle',
-      }, 'Self-improvement iteration'));
-      svg.appendChild(svgEl('text', {
-        x: 2, y: panels[0].top - 14, class: 'lc-axis-title', 'text-anchor': 'start',
-      }, 'Success rate (%)'));
-
-      // Draw only the in-range part of each series. A series that drops below
-      // the axis floor exits the plot and stops, rather than running flat
-      // along the bottom where it would read as sitting at the floor value.
-      const seriesPath = (vals, p) => {
-        let d = '', pen = false;
-        for (let i = 0; i < vals.length; i++) {
-          const v = vals[i], inRange = v >= p.ymin;
-          if (inRange) {
-            d += (pen ? 'L' : 'M') + x(i) + ' ' + p.y(Math.min(v, p.ymax)) + ' ';
-            pen = true;
-          } else {
-            if (pen) {
-              // interpolate to the exact crossing of the floor, then lift the pen
-              const pv = vals[i - 1];
-              const f = (pv - p.ymin) / (pv - v);
-              d += 'L' + (x(i - 1) + (x(i) - x(i - 1)) * f) + ' ' + p.y(p.ymin) + ' ';
-            }
-            pen = false;
-          }
-        }
-        return d.trim();
-      };
-
-      const lead = cfg.series[0];
-      panels.forEach(p => {
-        const mine = cfg.series.filter(s => !p.keys || p.keys.includes(s.key));
-        mine.forEach(s => {
-          const attrs = {
-            d: seriesPath(s.values, p), fill: 'none', stroke: s.color, 'stroke-width': s.width,
-            'stroke-linejoin': 'round', 'stroke-linecap': 'round',
-          };
-          if (s.dash) attrs['stroke-dasharray'] = s.dash;
-          svg.appendChild(svgEl('path', attrs));
-        });
-        // markers on the emphasised series only, so the measured points read
-        if (mine.includes(lead)) {
-          lead.values.forEach((v, i) => {
-            if (v >= p.ymin) svg.appendChild(svgEl('circle', { cx: x(i), cy: p.y(v), r: 4, fill: lead.color }));
-          });
-        }
-        // Direct end-of-line labels with each series' final value: this is what
-        // makes the plateau gaps legible without tracing lines by colour.
-        // Name each line directly beneath itself, no legend and no repeated
-        // percentages — the axis already carries the values. Anchors are
-        // staggered along x so labels for adjacent lines cannot collide.
-        // Name each line directly beneath itself. Anchor on the last point that
-        // is still on the axis, then walk backwards along the line until the
-        // label clears every one already placed — a fixed stagger is not
-        // enough when two long names sit at nearly the same height.
-        const n = its.length;
-        const placed = [];
-        const CH = 7.6, LH = 20;   // approx advance width and line height at 17px
-        mine.forEach(s => {
-          let lastIn = -1;
-          for (let i = 0; i < n; i++) if (s.values[i] >= p.ymin && s.values[i] <= p.ymax) lastIn = i;
-          if (lastIn < 0) return;
-
-          const w = s.label.length * CH;
-          let box = null, fallback = null;
-          // Try each point back along the line, below the line first and then
-          // above it. Saturated suites (Goal 99 / Object 100 / Spatial 98.5)
-          // sit too close for a below-only rule to ever separate them.
-          outer:
-          for (let tries = 0; tries <= lastIn; tries++) {
-            const cand = lastIn - tries;
-            for (const side of [24, -14]) {
-              const anchor = cand === n - 1 ? 'end' : cand === 0 ? 'start' : 'middle';
-              const cx = x(cand);
-              const x0 = anchor === 'end' ? cx - w : anchor === 'start' ? cx : cx - w / 2;
-              const cy = p.y(s.values[cand]) + side;
-              let b = { x0, x1: x0 + w, y0: cy - LH * 0.75, y1: cy + LH * 0.25, anchor, cx, cy };
-              // keep the label inside the plot rather than running to the edge
-              if (b.x1 > mL + pw) {
-                b = { ...b, anchor: 'end', cx: mL + pw, x0: mL + pw - w, x1: mL + pw };
-              } else if (b.x0 < mL) {
-                b = { ...b, anchor: 'start', cx: mL, x0: mL, x1: mL + w };
-              }
-              if (b.y0 < p.top || b.y1 > p.top + p.h_px) continue;   // stay in the panel
-              if (!fallback) fallback = b;
-              const hits = placed.some(q => b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0);
-              if (!hits) { box = b; break outer; }
-            }
-          }
-          if (!box) box = fallback;
-          if (!box) return;
-          placed.push(box);
-          svg.appendChild(svgEl('text', {
-            x: box.cx, y: box.cy, fill: s.color, 'text-anchor': box.anchor,
-            class: s === lead ? 'lc-end lc-end-strong' : 'lc-end',
-          }, s.label));
-        });
-      });
-
-      fig.innerHTML = '';
-      fig.appendChild(svg);
-
-      if (cfg.caption) {
-        const cap = document.createElement('figcaption');
-        cap.innerHTML = cfg.caption;
-        fig.appendChild(cap);
-      }
-    };
-
-    build('baselines-chart', {
-      iterations: RW.libero10.iterations,
-      series: RW.libero10.series,
+    const chart = makeChart(chartFig, {
+      iterations: L.iterations,
+      series: L.series,
       height: 470,
       scale: 'log-error',
       ymin: 60, ymax: 99.5,
       ticks: [60, 80, 90, 95, 98, 99],
-      aria: 'LIBERO-10 success rate against self-improvement iteration for Q-Planning and five baselines.',
-      caption: '<strong>LIBERO-10 under an identical online budget.</strong> IBRL and DSRL are both ' +
-        'unstable; IBRL leaves the axis after iteration&nbsp;2 and ends at 2%.',
+      band: ['qp', 'sft'],
+      markers: 'qp', markerR: 5,
+      valueLabels: 'ends',
+      yNote: 'Fraction of evaluation seeds completed, over 10 tasks &times; 20 seeds.',
+      aria: 'Q-Planning against five other self-improvement methods over ten online iterations on LIBERO-10.',
+      // Caption the curve, not the clips: this sits directly under the plot, so
+      // a caption about the videos above read as if it described the axes.
+      caption: '<strong>Q-Planning against five other self-improvement methods on LIBERO-10, ' +
+        'identical online budget.</strong> Only Q-Planning keeps climbing.',
+      onHover: (i) => cells.forEach(c => c.clip.fig.classList.toggle('is-hi', c.idx === i)),
     });
 
-    build('breadth-chart', {
+    if (!strip || !L.clips) return;
+    const sps = L.stepsPerSec || 80;
+
+    cells = mountStrip({
+      strip, group: 'l10', clips: L.clips, dir: L.dir || 'assets/videos/',
+      labelFor: (c) => c.iter === 0
+        ? '<span class="si-iter">Iteration&nbsp;0</span><br/>offline <em>Q</em>'
+        : '<span class="si-iter">Iteration&nbsp;' + c.iter + '</span>',
+      // These clips read out environment steps, the unit the paper reports,
+      // rather than the wall-clock seconds the real-robot clips show.
+      fmtFor: (c) => (t, done) =>
+        (done ? c.steps + ' steps ✓' : Math.min(c.steps, Math.round(t * sps)) + ' steps'),
+      onStatus: (idx, done) => {
+        const d = chart.dots[idx];
+        if (d) d.setAttribute('fill', done ? '#22c55e' : '#4338ca');
+      },
+      onHover: (idx, on) => (on ? chart.show(idx) : chart.clear()),
+    });
+  }
+
+  // ---------- (4) breadth across suites ----------
+  function initBreadthChart(RW) {
+    const fig = document.getElementById('breadth-chart');
+    if (!fig) return;
+    makeChart(fig, {
       iterations: RW.breadth.iterations,
       series: RW.breadth.series,
       height: 360,
       ymin: 80, ymax: 101,
       ticks: [80, 85, 90, 95, 100],
+      markers: 'robotwin', markerR: 4,
+      yNote: 'Fraction of evaluation seeds completed, 20 seeds per task, averaged over each suite.',
       aria: 'Success rate against self-improvement iteration for four LIBERO suites and RoboTwin.',
-      caption: '<strong>Breadth across LIBERO suites and bimanual RoboTwin.</strong> Where success is ' +
-        'already saturated, the loop improves efficiency instead of success rate.',
+      caption: '<strong>The online column of the table above, iteration by iteration.</strong>',
     });
   }
 

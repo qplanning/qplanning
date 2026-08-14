@@ -37,6 +37,12 @@ The two `_CoRL_...` files at the repo root are the authoritative artifacts; `ass
 
 ## 3. Page structure
 
+> **Stale below.** Sections 3–12 describe the page as first built, before the rebuttal update.
+> They are kept for the reasoning, not as a map of the current file. Where they disagree with
+> **"Rebuttal update"** further down, that section wins — in particular the page no longer has a
+> planner subsection, no longer mentions MPPI anywhere, and the LIBERO-10 rollout comparison is now
+> an iteration strip inside Results rather than a standalone `rollout-block` with a slider.
+
 Order top to bottom:
 
 1. **Sticky top nav** — title + Paper button (`assets/paper.pdf`) + Code button (`https://github.com/qplanning/lerobot`).
@@ -182,14 +188,19 @@ rebuttal's new material.
 - `#recovery` — one representative BC failure per named mode, shown beside the Q-Planning recovery
   on the same task. Chips switch mode. Deliberately one clip per mode, not a gallery: the real eval
   had few BC failures, and 15 decoding videos made the page lag.
-- Results gained `#baselines` (LIBERO-10 vs. 5 baselines), `#breadth` (LIBERO suites + RoboTwin),
-  `#latency` (headline numbers + full profile in a `<details>`), and the method-positioning table.
+- Results gained the per-iteration curves, `#latency` (headline numbers + full profile in a
+  `<details>`), and the method-positioning table.
 - **Method restructured to two components** (Q-function, self-improvement loop). The rebuttal demotes
   the proposal distribution to "a design choice, not a core part of our work", so the standalone
-  "Temporal-smoothed MPPI planner" subsection and the `traj_diversity.png` figure were removed; what
-  survives is a short action-selection paragraph, the Q-weighted-average equation, and a callout
-  noting MPPI (paper) vs 3-step diffusion draws (real robot). The old TL;DR bullet on MPPI planning
-  was dropped for the same reason. `assets/traj_diversity.png` is still on disk, just unreferenced.
+  planner subsection and the `traj_diversity.png` figure were removed; what survives is a short
+  action-selection paragraph, the top-K Q-weighted-average equation, and a callout on where the
+  candidates come from. The old TL;DR bullet on the planner was dropped for the same reason.
+  `assets/traj_diversity.png` is still on disk, just unreferenced.
+- **The planner is never named on the page.** Every mention of MPPI was removed by request: the
+  method is stated as "sample N chunks from the frozen BC, score with Q, execute the Q-weighted
+  average of the top K". The latency table rows that named it now read "Q-Planning, N=…" and
+  "Iterative sampler ×N rounds (paper)". `assets/paper.pdf` still says MPPI throughout — that is the
+  submitted PDF and is expected to differ. Do not reintroduce the term when editing.
 - TL;DR now: Q-function, self-improvement loop, real robot. Limitations updated.
 
 ### Data
@@ -209,11 +220,30 @@ Clip↔iteration mapping: `bc_base` → iteration 0, `qplanning_iter_0..3` → i
 
 ### How the video sync works (`js/main.js`)
 
-Different from the sim `rollout-compare` block above it. A **single virtual clock** (`syncGroup`)
-drives all five clips: each RAF tick computes `elapsed` and pulls any clip that has drifted more than
-0.35 s back onto the shared timeline, then restarts the whole group after the longest clip plus a
-1.4 s hold. The earlier master-video approach let a stalled clip drift out of lockstep, which broke
-the entire point of the section (comparing which rollout finishes first).
+A **single virtual clock** (`syncGroup`) drives every clip in a group: each RAF tick computes
+`elapsed` and pulls any clip that has drifted more than 0.35 s back onto the shared timeline, then
+restarts the whole group after the longest clip plus a 1.4 s hold. The earlier master-video approach
+let a stalled clip drift out of lockstep, which broke the entire point of the section (comparing
+which rollout finishes first). There are three groups — `si` (real robot), `cs` (recovery),
+`l10` (LIBERO-10) — registered in the `GROUPS` map with the element each one's visibility is gated
+on. `syncGroup(videos, groupKey)` takes the key, not a visibility predicate.
+
+**Completion is latched, deliberately.** Chrome reclaims the decoder of a clip that has finished:
+`readyState` drops 4 → 1 and `currentTime` resets to 0 while the element still reports unpaused.
+Deriving `done` from `currentTime` each frame therefore un-flipped the green ring mid-cycle and sent
+the step readout back to 0 — reproduced on 2 of the 6 LIBERO clips. `c._latched` is set once
+`currentTime >= successAt` and cleared only by `kick()`, i.e. on the next cycle.
+
+Two related traps, both fixed and both easy to reintroduce:
+- **`play()` on a clip sitting at its end rewinds it to 0.** So `setSectionActive` no longer plays
+  clips when a section scrolls back into view — it only resumes the group clock and lets the tick
+  restart whatever still has time left — and the tick's play condition requires real time remaining
+  on both the clock and the element.
+- **`successAt` must be ≤ `duration − 0.06`.** Clips freeze at `duration − 0.05`, so a `successAt`
+  above that never fires and the clip stays amber forever. `cups_iter3` (6.35 s against a 6.40 s
+  clip) was exactly on the edge; the LIBERO `successAt` values are set a tenth short of the clip end
+  for the same reason, and the readout prints the recorded `steps` when done rather than deriving it
+  from the trigger time.
 
 Status rings are CSS overlays, not baked into the video: **amber** while the rollout runs, **green**
 once `currentTime >= successAt`, **red** for a failed episode (`successAt: null`). In-progress is
@@ -222,8 +252,53 @@ is the entire point of the `#recovery` section. The matching dot on the curve tu
 moment, tying the videos to the plot.
 
 **Performance:** an IntersectionObserver pauses every clip in a section that is off screen and the
-RAF status loop skips it, so at most one section decodes at a time (5 clips, or 2 in `#recovery`).
-Without this the page ran 15 simultaneous decodes and felt sluggish.
+RAF status loop skips it, so at most one group decodes at a time (5, 6 or 2 clips). Without this the
+page ran 13+ simultaneous decodes and felt sluggish.
+
+### Margin notes
+
+Figure captions carry the claim only; definitions live in **margin notes** (`note(n, term, body)` in
+`main.js`, rendered by the `.sn-*` styles). A marked term opens a note that sits in the empty
+right-hand gutter when the window has ≥250px of it, and as a card under the marker when it does not.
+Captions dropped from ~110 and ~95 words to ~45 and ~43.
+
+Five notes, numbered **per figure** rather than down the page, since each one is read in place:
+- every chart's **y-axis title** carries note ①, saying what a success rate counts and over how many
+  evaluation seeds. This is why the y title is an HTML `.lc-ytitle` absolutely positioned over the
+  figure rather than SVG `<text>`: SVG text cannot carry the note button or its styling. The figure
+  is `position: relative` and the SVG is drawn at 1:1, so the title's `top` is just a plot
+  coordinate.
+- The title is placed **6px above the topmost tick label**, not at a fixed offset from the plot top.
+  Those two coincide on a linear 0-100 axis but not on the log-error chart, where the first gridline
+  sits ~74px below the plot top and a plot-top-anchored title read as stranded far above the numbers
+  it labels.
+- *SFT on successes* ② on the real-robot caption; *IBRL and DSRL are unstable* ② on the LIBERO-10
+  chart's own figcaption.
+
+**Only the curve is captioned in the LIBERO-10 figure.** The clip strip had a caption of its own,
+but it sat *below the chart* — so a sentence about the videos read as if it described the axes. The
+clips carry their own per-cell labels (iteration, live step count, ring colour), which is enough;
+`#l10-caption` is gone and the caption now lives inside `figure#baselines-chart`. `#si-chart` is the
+one chart with no figcaption — its caption is the paragraph below the stage — hence the explicit
+`#si-chart { margin-bottom: 0 }` rather than a `.si-stage .si-chart` rule that would also have hit
+the LIBERO chart.
+
+`note()` keys its registry by body text, so the map does not grow each time a chart redraws on
+resize or the task chip is switched (verified: 5 refs, 5 distinct ids, stable across redraws).
+
+The marker is a **filled indigo numeral**, not a bare superscript, and this is the load-bearing
+detail: on a phone there is no gutter, so the note is the *only* place that definition exists, and a
+footnote nobody notices is worse than no footnote. The note body is also emitted into the button as
+`.sr-only` text so assistive tech never depends on hover.
+
+Behaviour, and the two traps already hit:
+- Hover opens, click **pins** (so it survives the pointer leaving), click again or click away closes,
+  Escape closes and returns focus to the marker. Keyboard activation arrives as a `click` on the
+  `<button>`, so Enter/Space work with no extra handler.
+- **No `focusin` handler.** Focus lands before `click` on a mouse press, so pinning on focus made the
+  subsequent click read as a second tap and close the note immediately.
+- **`hideSoon()` must not re-arm.** Clearing and re-setting the timer on every `pointerover` pushed
+  the deadline forward for as long as the mouse kept moving, so the note never closed.
 
 ### Wording
 
@@ -237,14 +312,33 @@ Note for JS-injected captions: KaTeX auto-render runs once at load, so `$...$` i
 
 ### Chart design
 
+**One renderer for every curve.** `makeChart(fig, cfg)` / `drawChart()` draws the real-robot curve,
+the LIBERO-10 baselines curve and the breadth curve, so they share margins, tick typography, the
+shaded band between a method and its closest baseline, direct labels and the hover readout. This was
+a deliberate consolidation: the LIBERO figure used to be a different object from the real-robot one
+(a left/right video pair on a slider, plus a legend-less multi-series chart) and read as a separate
+design. Both self-improvement figures are now the same thing — a strip of one clip per iteration
+over a curve whose markers turn green as the clips finish, wired both ways (hover a clip to mark its
+point, hover the curve to mark the clip). `cfg` knobs: `band: ['qp','sft']`, `markers`,
+`valueLabels: 'all' | 'ends'`, `plainMarkers`, `scale`, `panels`, `onHover`.
+
+The two charts also share a palette so the eye carries meaning across them: **indigo** is always
+Q-Planning, **grey dashed** is always SFT-on-successes (the band partner in both), and the remaining
+LIBERO baselines are orange / green / cyan / pink. DAWR used to be `#4a3aa7`, near-identical to
+Q-Planning's indigo, which made the two lines hard to separate once the band was added.
+
 All three line charts label each series **directly beneath its own line** — no legend, and no
 percentages repeated in the label, since the axis carries the values. Placement anchors on the last
 point still on the axis, then walks backwards along the line until the label clears every one
 already placed, trying **below the line first and then above it**, and clamping to the plot edges.
 A fixed stagger is not enough: LIBERO-Goal, -Object and -Spatial all sit within ~1.5pp and collided
 until the check became a real box test with both sides available. Labels also carry a white halo
-(`paint-order: stroke fill`) so they stay legible where they must cross another series — with three
-saturated suites there is no placement that avoids every line.
+(`paint-order: stroke fill`) **and an opaque backing rect** so they stay legible where they must
+cross another series — with three saturated suites there is no placement that avoids every line, and
+the halo alone still let the line show through the gaps between letters, reading as a strikethrough.
+Label boxes come from `getComputedTextLength()`, which is why the SVG is appended to the figure
+*before* its contents are drawn: the method returns 0 on a detached element, and the old
+character-count estimate was off by enough to misplace both the collision test and the backing rect.
 
 Charts render at **1:1 CSS pixels** — `responsiveSVG()` measures the container and draws at that
 width so the SVG coordinate system *is* pixels. A fixed `viewBox` scaled all text with the container
@@ -254,15 +348,13 @@ against 17px body copy. They re-render on resize via `ResizeObserver`, and fall 
 below the chart under 560px wide. Note these use class `.lc-svg`, **not** `.chart-svg` — the latter
 forces `width: 100%`, which would rescale the text again.
 
-Both line charts use **direct end-of-line labels** (`Q-Planning 99%`) instead of a legend, so plateau
-gaps are readable without tracing colours; `deoverlapLabels()` pushes them apart and keeps the stack
-inside the plot. The baselines chart uses `scale: 'log-error'` — a log axis on the *distance from 100%*, not on the
+The baselines chart uses `scale: 'log-error'` — a log axis on the *distance from 100%*, not on the
 success rate. A plain log on success (`scale: 'log'`, also implemented) is the wrong transform for a
 saturating metric: it crushes 91–99% into a single band at the top, the exact region the chart exists
 to resolve. On log-error, 99 vs 95 occupies ~37% of the plot height while DSRL's swings stay visible
-and IBRL still exits the axis. `scale: 'linear'` is the default for the breadth chart. (`build()` still supports
-`cfg.panels` for stacked panels sharing one x-axis if that's ever wanted again.) Series that drop below a panel's floor exit the plot rather than running
-flat along it. Both results charts carry `bleed` so they extend past the 760px text column.
+and IBRL still exits the axis. `scale: 'linear'` is the default for the breadth and real-robot charts. (`drawChart()` still supports
+`cfg.panels` for stacked panels sharing one x-axis if that's ever wanted again.) Series that drop
+below a panel's floor exit the plot rather than running flat along it.
 
 **There is no bleed any more, and that is the point.** `main` used to be capped at 760px with wide
 blocks pulled outward by negative margins, so section rules (the `h2` border) ended left of the
@@ -301,11 +393,57 @@ subsections read as clutter. Subsection headings also carry `margin-top: 52px`; 
 separates them. `h2 + h3` and `.lede + h3` drop back to 28px so a section that opens on a
 subsection has no dead gap.
 
+### Chart hover vs. the axis-title note
+
+The readout that follows the pointer across a curve had **no vertical bound** — it fired anywhere
+over the SVG, including the band above the first gridline where the y-axis title and its note live,
+and the card then painted straight over the control the reader was reaching for. Two fixes, both
+load-bearing:
+- `pointermove` now requires the pointer to be inside the plot body before showing anything.
+- the card is anchored to the **hovered data point** instead of being parked at the plot top, where
+  it also overhung the figure entirely on tall multi-series charts (it grows upward from its
+  anchor). When there is not room above the point it **flips underneath** rather than stacking on
+  the title.
+- the clearance it must respect is computed from the title's *measured* bottom
+  (`topLimit = titleBottom + 6`), so it stays correct as the title moves.
+
+`.lc-ytitle` also carries `z-index: 3` so the title outranks `.lc-tip` if they ever do overlap.
+Verified by sweeping the full width of the title row: 0 readout triggers, and the numeral is the
+top-most element at its own centre.
+
+### Framing of the baselines figure
+
+The LIBERO-10 curve is **advertised as the comparison against other self-improvement methods**, not
+as a LIBERO-10 result. The run-in lead is "Against other self-improvement methods"; LIBERO-10 is
+named only as the venue the comparison happens to run on. An earlier draft opened it with
+"LIBERO-10 is the hardest of the five", which is **false** — RoboTwin is the lowest benchmark on the
+page (83.2 FastWAM / 83.8 offline, against LIBERO-10's 90.0 / 93.0). LIBERO-10 is the hardest
+*LIBERO suite*, nothing more. Don't reintroduce the claim.
+
+Two other accuracy fixes made in the same pass, both worth not undoing:
+- "shorten episodes on all five" is only true **relative to iteration 0**. Against FastWAM, the
+  online column is *longer* on LIBERO-Spatial (107 vs 106) and RoboTwin (232 vs 220).
+- "lift every benchmark" was wrong for LIBERO-Goal, which is flat at 99.0 from iteration 0 to 10.
+  The text now says success lifts "wherever there is headroom" and names the three that move.
+
+**Known tension, left as the author chose.** The Abstract is verbatim from the submission and says
+*six* iterations; every result on the page is the rebuttal's ten-iteration runs. The table note now
+says so explicitly rather than leaving the reader to spot the contradiction. Likewise the real-robot
+caption quotes the rebuttal's "25 → 80%" while the plotted curve ends at 85% (iteration 4) — both
+verbatim from the rebuttal, per author instruction.
+
 ### Results section structure
 
-Restructured to remove duplication: **Benchmark results** (one table, all five benchmarks, offline
-*and* online), **Online self-improvement on LIBERO-10** (baselines chart + positioning table + the
-sim rollout videos), **Breadth**, **Latency**, **Q-value trajectories**.
+Three subsections: **Benchmark results**, **Planning latency**, **Q-value trajectories**.
+
+Benchmark results carries everything about the benchmarks, in one narrative: the five-benchmark
+table (FastWAM | offline | online), then the breadth curve captioned as *the online column of the
+table above, iteration by iteration*, then the LIBERO-10 clip strip and baselines curve as an
+interactive figure with no heading of its own. The old `#breadth` subsection read as bolted on
+because it was — it plotted the same benchmarks the table already listed — and LIBERO-10 did not
+need to be a peer section of "Benchmarks" when it is one row of that table examined closely. The
+`#baselines` anchor survives on the LIBERO-10 paragraph so the Method section's Best-of-N link still
+resolves; `#breadth` is gone. TOC under Results is now just Benchmarks and Latency.
 
 Removed: the LIBERO-10 bar-chart figure (it restated the table's LIBERO-10 row, and its ~220 lines of
 JS are deleted along with `#chart-tooltip` and the `cell-libero10-*` ids it hovered), and
@@ -359,8 +497,12 @@ headless clamps the window to ~500px.
 
 - The three stack-cups failure-mode labels in `real_world.json` were proposed from watching the clips
   and need author confirmation.
-- `cups_iter3` has `successAt: 6.35` — the measured value was 6.5 s but that clip is only 6.40 s long
-  (it carries a 1 s start trim), so the value is clamped to land inside the clip.
+- `cups_iter3` has `successAt: 6.28` — the measured value was 6.5 s but that clip is only 6.40 s long
+  (it carries a 1 s start trim), so the value is clamped to land inside the clip, and far enough
+  inside to clear the `duration − 0.05` freeze point.
+- The six LIBERO clips' `successAt` values are `steps / 80` less ~0.12 s, i.e. the trigger fires a
+  breath before the clip's last frame. The readout still prints the exact recorded step count
+  (520 / 518 / 343 / 317 / 254 / 218) once complete, so the early trigger is not visible.
 - Real-robot iteration 4 for insert-wallet (85%) is flagged as a placeholder in the rebuttal's
   `make_figs.py`; the rebuttal prose quotes 25→80% (iteration 3). Both are on the page as-is per
   author instruction to reproduce the rebuttal verbatim.

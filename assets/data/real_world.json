@@ -28,7 +28,7 @@
         { "iter": 0, "src": "cups_iter0", "successAt": 9.2, "label": "Frozen BC" },
         { "iter": 1, "src": "cups_iter1", "successAt": 7.3, "label": "Iteration 1" },
         { "iter": 2, "src": "cups_iter2", "successAt": 7.0, "label": "Iteration 2" },
-        { "iter": 3, "src": "cups_iter3", "successAt": 6.35, "label": "Iteration 3" },
+        { "iter": 3, "src": "cups_iter3", "successAt": 6.28, "label": "Iteration 3" },
         { "iter": 4, "src": "cups_iter4", "successAt": 6.0, "label": "Iteration 4" }
       ]
     }
@@ -73,15 +73,26 @@
   },
 
   "libero10": {
-    "_note": "Verbatim from make_figs.py / libero10_si_loop.csv. 11 self-improvement iterations.",
+    "_note": "Verbatim from make_figs.py / libero10_si_loop.csv. 11 self-improvement iterations. clips are the six rollouts of put_black_bowl_in_bottom_drawer_and_close recorded at iterations 0-5; they live in assets/videos/ (not assets/videos/real/) and run at 80 environment steps per second of video, so successAt = steps/80 less a frame.",
     "iterations": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     "series": [
-      { "key": "qp",   "label": "Q-Planning",   "color": "#4338ca", "width": 2.2, "dash": "",      "values": [93.0, 93.0, 91.5, 95.0, 95.5, 96.0, 97.5, 99.0, 99.0, 99.0, 99.0] },
-      { "key": "bon",  "label": "Best-of-N",    "color": "#eb6834", "width": 1.4, "dash": "5 3",   "values": [92.2, 94.5, 94.5, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0] },
-      { "key": "sft",  "label": "Filtered SFT", "color": "#008300", "width": 1.4, "dash": "4 3",   "values": [90.0, 93.8, 93.6, 94.5, 91.0, 94.4, 93.5, 93.5, 93.5, 93.5, 93.5] },
-      { "key": "dawr", "label": "DAWR",         "color": "#4a3aa7", "width": 1.4, "dash": "6 2 2 2", "values": [90.0, 93.8, 91.5, 91.5, 92.5, 90.0, 91.0, 91.0, 91.0, 91.0, 91.0] },
-      { "key": "dsrl", "label": "DSRL",         "color": "#1baf7a", "width": 1.4, "dash": "7 2 2 2", "values": [90.0, 91.0, 78.5, 84.0, 74.5, 89.0, 69.0, 69.5, 72.5, 90.5, 78.0] },
-      { "key": "ibrl", "label": "IBRL",         "color": "#e87ba4", "width": 1.4, "dash": "2 2",   "values": [90.0, 76.0, 71.0, 5.0, 3.0, 6.0, 2.0, 4.0, 3.0, 5.0, 2.0] }
+      { "key": "qp",   "label": "Q-Planning",       "color": "#4338ca", "width": 2.2, "dash": "",      "values": [93.0, 93.0, 91.5, 95.0, 95.5, 96.0, 97.5, 99.0, 99.0, 99.0, 99.0] },
+      { "key": "bon",  "label": "Best-of-N",        "color": "#ea580c", "width": 1.4, "dash": "5 3",   "values": [92.2, 94.5, 94.5, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0, 95.0] },
+      { "key": "sft",  "label": "SFT on successes", "color": "#9ca3af", "width": 1.4, "dash": "4 3",   "values": [90.0, 93.8, 93.6, 94.5, 91.0, 94.4, 93.5, 93.5, 93.5, 93.5, 93.5] },
+      { "key": "dawr", "label": "DAWR",             "color": "#008300", "width": 1.4, "dash": "6 2 2 2", "values": [90.0, 93.8, 91.5, 91.5, 92.5, 90.0, 91.0, 91.0, 91.0, 91.0, 91.0] },
+      { "key": "dsrl", "label": "DSRL",             "color": "#0891b2", "width": 1.4, "dash": "7 2 2 2", "values": [90.0, 91.0, 78.5, 84.0, 74.5, 89.0, 69.0, 69.5, 72.5, 90.5, 78.0] },
+      { "key": "ibrl", "label": "IBRL",             "color": "#db2777", "width": 1.4, "dash": "2 2",   "values": [90.0, 76.0, 71.0, 5.0, 3.0, 6.0, 2.0, 4.0, 3.0, 5.0, 2.0] }
+    ],
+    "task": "put_black_bowl_in_bottom_drawer_and_close",
+    "dir": "assets/videos/",
+    "stepsPerSec": 80,
+    "clips": [
+      { "iter": 0, "src": "bowl_iter0", "steps": 520, "successAt": null },
+      { "iter": 1, "src": "bowl_iter1", "steps": 518, "successAt": 6.35 },
+      { "iter": 2, "src": "bowl_iter2", "steps": 343, "successAt": 4.17 },
+      { "iter": 3, "src": "bowl_iter3", "steps": 317, "successAt": 3.84 },
+      { "iter": 4, "src": "bowl_iter4", "steps": 254, "successAt": 3.05 },
+      { "iter": 5, "src": "bowl_iter5", "steps": 218, "successAt": 2.60 }
     ]
   },
 

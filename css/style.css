@@ -269,13 +269,7 @@ figcaption {
 }
 figcaption strong { color: var(--ink); }
 
-/* ============ Rollout video comparison ============ */
-.rollout-block {
-  margin: 64px 0;
-}
-.rollout-compare {
-  margin: 0 0 12px;
-}
+/* ============ Rollout captions & video frames ============ */
 .rollout-caption {
   font-family: var(--sans);
   font-size: 13.5px;
@@ -292,16 +286,6 @@ figcaption strong { color: var(--ink); }
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 1px 5px;
-}
-.rollout-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: start;
-}
-.rollout-slot {
-  margin: 0;
-  text-align: center;
 }
 .video-frame {
   position: relative;
@@ -324,17 +308,6 @@ figcaption strong { color: var(--ink); }
   -webkit-user-select: none;
   user-select: none;
 }
-.rollout-right .video-frame {
-  position: relative;
-}
-.rollout-right .video-frame video {
-  position: absolute;
-  inset: 0;
-  visibility: hidden;
-}
-.rollout-right .video-frame video.is-active {
-  visibility: visible;
-}
 .rollout-meta {
   margin-top: 10px;
   display: flex;
@@ -348,16 +321,6 @@ figcaption strong { color: var(--ink); }
   color: var(--ink);
   font-weight: 500;
 }
-.rollout-stats {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.rollout-steps { font-family: var(--mono); font-size: 12.5px; }
-.rollout-steps strong { color: var(--ink); font-weight: 600; }
 .badge {
   display: inline-flex;
   align-items: center;
@@ -379,41 +342,16 @@ figcaption strong { color: var(--ink); }
   border: 1px solid #fca5a5;
 }
 
-/* ============ Iter slider ============ */
-.iter-slider {
-  margin: 20px auto 0;
-  max-width: 320px;
-  text-align: center;
-  font-family: var(--sans);
-  font-size: 13px;
-  color: var(--muted);
-}
-.iter-slider-label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--muted);
-}
-.iter-slider-label strong { color: var(--accent); font-weight: 600; }
-#iter-range {
-  width: 100%;
-  accent-color: var(--accent);
-  height: 4px;
-}
-.iter-slider-ticks {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 2px;
-  margin-top: 4px;
-  font-size: 11.5px;
-  font-family: var(--mono);
-  color: var(--muted);
-}
-
 /* ============ Equations ============ */
 .eq {
   overflow-x: auto;
   padding: 8px 0;
-  margin: 8px 0 20px;
+  margin: 8px 0 12px;
+}
+.eq-note {
+  margin: 0 0 22px;
+  font-size: 0.92em;
+  color: var(--muted);
 }
 
 /* ============ Lists ============ */
@@ -733,7 +671,6 @@ footer a:hover { color: var(--accent); }
   .btn { padding: 7px 11px; font-size: 13px; }
   figure.arch img,
   figure.side-fig img { max-width: 100%; }
-  .rollout-pair { grid-template-columns: 1fr; }
 }
 
 /* ==========================================================================
@@ -794,7 +731,8 @@ footer a:hover { color: var(--accent); }
 .si-stage { margin-top: 4px; }
 .si-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* --cols is set inline per strip: 5 real-robot iterations, 6 in LIBERO-10 */
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -802,6 +740,11 @@ footer a:hover { color: var(--accent); }
 .si-cell .rollout-meta { margin-top: 8px; gap: 3px; }
 .si-cell .rollout-label { font-size: 12.5px; }
 .si-cell.is-baseline .rollout-label { color: var(--muted); }
+/* two-way link with the curve: hovering a clip marks its point on the chart,
+   hovering the chart marks the clip */
+.si-cell .video-frame { transition: box-shadow .15s ease; }
+.si-cell.is-hi .video-frame { box-shadow: 0 0 0 2px var(--accent); }
+.si-cell.is-hi .rollout-label { color: var(--accent); }
 
 /* --- status ring: red during the rollout, green once the task completes --- */
 .status-frame { position: relative; }
@@ -841,7 +784,10 @@ footer a:hover { color: var(--accent); }
 .si-time.is-done { color: #166534; font-weight: 600; }
 
 /* --- success curve under the strip --- */
-.si-chart { margin: 16px 0 0; }
+.si-chart { margin: 16px 0 30px; position: relative; }
+/* the only chart with no figcaption of its own: its caption is the paragraph
+   just below the stage, so it supplies the gap */
+#si-chart { margin-bottom: 0; }
 .si-chart svg { display: block; margin: 0 auto; }
 .si-chart figcaption {
   margin-top: 8px;
@@ -850,6 +796,47 @@ footer a:hover { color: var(--accent); }
   text-align: center;
 }
 .si-dot-active { filter: drop-shadow(0 0 3px rgba(67, 56, 202, .5)); }
+
+/* --- hover readout shared by every curve --- */
+.lc-guide {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: .45;
+  pointer-events: none;
+}
+.lc-halo {
+  fill: #fff;
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+.lc-tip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .12);
+  padding: 8px 10px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: nowrap;
+  z-index: 2;
+}
+.lc-tip.is-on { opacity: 1; }
+.lc-tip b { display: block; font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+.lc-tip span { display: flex; align-items: center; gap: 6px; }
+.lc-tip i { width: 9px; height: 3px; border-radius: 2px; flex: none; }
+.lc-tip em { margin-left: auto; padding-left: 14px; font-style: normal; font-weight: 600; font-family: var(--mono); }
+@media (hover: none) {
+  /* no hover on touch: the tip would stick after a tap */
+  .lc-tip { display: none; }
+}
 
 /* --- failure modes: BC failure beside the Q-Planning recovery --- */
 .cs-pair {
@@ -890,14 +877,6 @@ footer a:hover { color: var(--accent); }
 table.results td.mk { text-align: center; font-size: 15px; }
 table.results td.mk.yes { color: #166534; }
 table.results td.mk.no  { color: #b91c1c; }
-.table-caption {
-  caption-side: top;
-  text-align: left;
-  font-family: var(--sans);
-  font-size: 13px;
-  color: var(--muted);
-  padding-bottom: 8px;
-}
 .table-note {
   font-size: 12.5px;
   color: var(--muted);
@@ -919,35 +898,17 @@ table.results td.mk.no  { color: #b91c1c; }
   font-weight: 500;
 }
 .latency-details[open] summary { margin-bottom: 12px; }
-.chart-legend {
-  font-size: 15px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 16px;
-  margin-top: 10px;
-  font-family: var(--sans);
-  font-size: 12.5px;
-  color: var(--muted);
-}
-.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.chart-legend i {
-  width: 16px; height: 0;
-  border-top-width: 2.5px;
-  border-top-style: solid;
-  display: inline-block;
-}
 
 @media (max-width: 640px) {
   .cs-pair { grid-template-columns: 1fr; gap: 22px; }
 }
 @media (max-width: 720px) {
-  .si-strip { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .si-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .si-cell .rollout-label { font-size: 11.5px; }
   .si-time { font-size: 10.5px; }
 }
 @media (max-width: 460px) {
-  .si-strip { grid-template-columns: repeat(2, 1fr); }
+  .si-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -975,6 +936,89 @@ table.results td.mk.no  { color: #b91c1c; }
   stroke-linejoin: round;
 }
 .lc-end-strong { font-size: 17px; font-weight: 700; }
+.lc-label-bg { fill: var(--bg); }
+
+/* ============ Margin notes ============ */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.sn { white-space: nowrap; }   /* keep the term and its numeral together */
+.sn-ref {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--accent);
+  white-space: normal;
+}
+.sn-ref:hover,
+.sn-ref[aria-expanded="true"] { color: var(--accent); }
+/* A filled numeral, not a bare superscript: the note has to advertise itself,
+   because on a phone it is the only place the definition exists. */
+.sn-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  margin-left: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 4px;
+}
+.sn-ref:hover .sn-mark,
+.sn-ref[aria-expanded="true"] .sn-mark { background: var(--accent-hover); }
+.sn-ref:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.sn-card {
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
+  padding: 10px 13px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+}
+.sn-card.is-on { opacity: 1; visibility: visible; }
+/* Out in the gutter it should read as a margin note, not a popup. */
+.sn-card.is-margin {
+  background: transparent;
+  border: 0;
+  border-left: 2px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 1px 0 1px 13px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.sn-card em { color: inherit; }
+@media (prefers-reduced-motion: reduce) {
+  .sn-card { transition: none; }
+}
 .lc-panel-title { font-size: 15px; font-weight: 600; fill: var(--muted); font-family: var(--sans); }
 
 /* Line charts are drawn at 1:1 CSS pixels, so they must NOT be stretched to
@@ -1031,9 +1075,22 @@ table.results td.mk.no  { color: #b91c1c; }
   h3 { margin-top: 84px; }
   h2 + h3, .lede + h3 { margin-top: 34px; }
   .lc-tick, .lc-axis, .lc-value { font-size: 17px; }
-  .lc-axis-title { font-size: 16px; }
+  .lc-ytitle { font-size: 16px; }
   .lc-end { font-size: 18px; }
 }
 /* y-axis title: horizontal, above the axis, so it uses vertical space rather
    than eating into the plot width */
-.lc-axis-title { font-size: 15px; font-weight: 600; fill: var(--muted); font-family: var(--sans); }
+/* y-axis title is HTML, not SVG text, so it can carry a margin note; it is
+   positioned over the figure by js/main.js at the plot's top-left */
+.lc-ytitle {
+  position: absolute;
+  left: 2px;
+  /* above .lc-tip: if the hover card ever reaches this high it must not bury
+     the axis title, which carries a clickable note */
+  z-index: 3;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.2;
+}
