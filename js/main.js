@@ -370,7 +370,12 @@
     video.poster = dir + src + '.jpg';
     video.muted = true;
     video.playsInline = true;
-    video.preload = 'auto';
+    // 'metadata', not 'auto'. There are 11 clips across the two strips; with
+    // preload="auto" every one of them fetches in full on load (~2.5 MB) and
+    // asks for a decoder up front, and mobile Safari caps how many video
+    // elements can hold one at once — past the cap the extras simply render
+    // black. syncGroup only needs loadedmetadata, which 'metadata' still fires.
+    video.preload = 'metadata';
     video.setAttribute('playsinline', '');
     video.setAttribute('disablepictureinpicture', '');
     video.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback');
@@ -427,7 +432,7 @@
   // Versioned like the css/js: this file names the clip files, so a cached
   // copy can point at a filename that no longer exists. Bump with ?v= in
   // index.html whenever real_world.json or a clip filename changes.
-  fetch('assets/data/real_world.json?v=15')
+  fetch('assets/data/real_world.json?v=16')
     .then(r => r.json())
     .then(RW => {
       initSelfImprovement(RW);

@@ -300,6 +300,34 @@ Behaviour, and the two traps already hit:
 - **`hideSoon()` must not re-arm.** Clearing and re-setting the timer on every `pointerover` pushed
   the deadline forward for as long as the mouse kept moving, so the note never closed.
 
+### Video encoding (why the clips are the way they are)
+
+After a report that some viewers saw black frames, the clips were normalised. **Do not re-encode
+back to the old settings.**
+
+- All `assets/videos/real/*.mp4` were `yuvj420p` with `color_range=pc` — the deprecated full-range
+  ("JPEG range") H.264 flavour that ffmpeg picks up from some sources. The sim clips, which nobody
+  ever complained about, were plain `yuv420p`. They are now all
+  `yuv420p` / `color_range=tv` / **Main** profile / level 3.1, converted with an explicit
+  `scale=in_range=full:out_range=limited` so the picture is unchanged on a compliant player
+  (SSIM 0.982 vs the originals, +4% size). Durations are bit-identical, which matters because every
+  `successAt` is tied to them.
+- **faststart everywhere.** The sim clips had their `moov` atom at the *end* of the file, so nothing
+  could start playing until the whole file had downloaded — a stall that looks exactly like a black
+  box on a slow connection. All clips now have `moov` before `mdat`.
+- **`preload="metadata"`, not `"auto"`, in `mkClip`.** With `auto`, all 11 strip clips fetched in
+  full on page load (~2.5 MB) and asked for a decoder up front. Mobile Safari caps how many video
+  elements can hold a decoder at once, and past the cap the extras render black. `syncGroup` only
+  needs `loadedmetadata`, which `metadata` still fires.
+- **The two `#recovery` `<video>` elements carry a `poster` in the markup.** They get their `src`
+  from JS, so before JS runs (or if it fails) they were empty boxes over `.video-frame`'s `#0f172a`
+  background — indistinguishable from a black video. This is the same surface that produced the
+  earlier stale-cache black-video report.
+
+What was ruled out: the sources are not dark (first-frame Y ≈ 143/255 on every clip); Chrome decodes
+and paints all of them (canvas pixel readback, mean 129-145); and so does AVFoundation, the stack
+Safari uses (`qlmanage -t` thumbnails, mean 128-149).
+
 ### Wording
 
 Prose in the new sections is taken or condensed from `rebuttal_template.tex` and the paper's own
