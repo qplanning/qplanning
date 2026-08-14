@@ -342,6 +342,19 @@ a cached `main.js` still did `descEl.innerHTML = ...` threw inside `showMode`, t
 never assigned, and the recovery videos rendered as empty black frames. It self-heals after ten
 minutes, which makes it easy to misdiagnose as a deploy delay.
 
+### Mobile viewport
+
+`main` uses `width: 100%` + `justify-self: center`, **not** `margin-left/right: auto`. Auto margins
+make a grid item shrink-to-fit, so it sizes to its own min-content: on a phone that pushed `main` to
+804px inside a 390px viewport, `documentElement.scrollWidth` to 822, and iOS Safari opened the page
+at roughly 2x zoom showing half the width. Auto margins looked fine on desktop because the track was
+always wider than the content. The collapsed grid track is also `minmax(0, 1fr)` rather than `1fr`,
+so it can shrink below its content's min-content width.
+
+Check this the exact way: an iframe of a fixed width, comparing
+`documentElement.scrollWidth` to `clientWidth`. A narrow `--window-size` cannot show it because
+headless clamps the window to ~500px.
+
 ### Known open items
 
 - The three stack-cups failure-mode labels in `real_world.json` were proposed from watching the clips

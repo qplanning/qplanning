@@ -164,9 +164,13 @@ body {
    charts all share --content-w, so nothing overhangs and nothing hugs. main is
    centred inside its grid column when the column is wider. */
 main {
+  /* width + justify-self, NOT auto margins: auto margins make a grid item
+     shrink-to-fit, so it sizes to its min-content and overflows a narrow
+     viewport. This centred main in its column on desktop while pushing the
+     page to ~800px on a phone. */
+  width: 100%;
   max-width: var(--content-w);
-  margin-left: auto;
-  margin-right: auto;
+  justify-self: center;
   padding: 48px 0 96px;
   min-width: 0;
 }
@@ -683,7 +687,10 @@ footer a:hover { color: var(--accent); }
 /* ============ Responsive ============ */
 @media (max-width: 960px) {
   .page {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr), not 1fr: a plain 1fr track takes its automatic minimum
+       from the content's min-content width, so one unbreakable child pushes the
+       whole page wider than the viewport. */
+    grid-template-columns: minmax(0, 1fr);
     column-gap: 0;
   }
   #sidebar {
