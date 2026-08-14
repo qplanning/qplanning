@@ -217,7 +217,8 @@
         c.video.pause();
       }
     }
-    if (which === 'si' && siClock) (on ? siClock.resume() : siClock.pause());
+    const clock = which === 'si' ? siClock : csClock;
+    if (clock) (on ? clock.resume() : clock.pause());
     schedule();
   };
 
@@ -237,6 +238,7 @@
   let rafPending = false;
   const tickStatus = () => {
     if (siClock && siVisible) siClock.tick();
+    if (csClock && csVisible) csClock.tick();
     for (const c of tracked) {
       if (c.group === 'si' && !siVisible) continue;
       if (c.group === 'cs' && !csVisible) continue;
@@ -283,8 +285,8 @@
   // point is comparing which rollout finishes first. Clips shorter than the
   // group freeze on their last frame; everything restarts together after a
   // short hold so the finish order stays readable.
-  let siClock = null;
-  const syncGroup = (videos, holdSec = 1.4) => {
+  let siClock = null, csClock = null;
+  const syncGroup = (videos, isVisible, holdSec = 1.4) => {
     if (!videos.length) return null;
     videos.forEach(v => { v.muted = true; v.loop = false; });
     const g = { videos, t0: 0, span: 0, hold: holdSec, started: false, pausedAt: 0 };
@@ -304,12 +306,12 @@
         try { v.currentTime = 0; } catch {}
         // Only actually decode if the section is on screen — metadata can land
         // long after the visibility observer has already run.
-        if (siVisible) {
+        if (isVisible()) {
           const p = v.play();
           if (p && typeof p.catch === 'function') p.catch(() => {});
         }
       });
-      if (!siVisible) g.pause();
+      if (!isVisible()) g.pause();
       schedule();
     };
 
@@ -331,7 +333,7 @@
         if (Math.abs((v.currentTime || 0) - target) > 0.35) {
           try { v.currentTime = target; } catch {}
         }
-        if (siVisible && elapsed < dur && v.paused) {
+        if (isVisible() && elapsed < dur && v.paused) {
           const p = v.play();
           if (p && typeof p.catch === 'function') p.catch(() => {});
         }
@@ -473,7 +475,7 @@
         clip.fig.addEventListener('mouseleave', () => highlight(idx, false));
       });
 
-      siClock = syncGroup(cells.map(c => c.clip.video));
+      siClock = syncGroup(cells.map(c => c.clip.video), () => siVisible);
       drawCurve(taskKey);
 
       capEl.innerHTML =
@@ -628,14 +630,10 @@
       recCap.innerHTML = rec.caption + ' &middot; ' + RW.tasks[mode.task].label;
       recRec.successAt = rec.successAt;
 
-      [failVideo, recVideo].forEach(v => {
-        v.muted = true;
-        v.loop = true;
-        if (csVisible) {
-          const p = v.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
-        }
-      });
+      // Both clips run off one clock and restart together: a side-by-side
+      // comparison is only meaningful if the two rollouts start at the same
+      // moment. The shorter clip freezes on its last frame until the wrap.
+      csClock = syncGroup([failVideo, recVideo], () => csVisible);
       schedule();
     };
 
