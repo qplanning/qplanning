@@ -45,7 +45,7 @@
       "id": "under",
       "task": "wallet",
       "label": "Card pushed under the wallet",
-      "clip": "wallet_fail_under"
+      "clip": "wallet_fail_under_v2"
     },
     {
       "id": "topple",
