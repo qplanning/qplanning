@@ -332,6 +332,16 @@ over FastWAM is +0.6pp. The "+1.4pp on the LIBERO aggregate" claim is unaffected
 offline cell therefore disagrees with the published Table 3**; that is intentional, but re-check it
 if the paper is ever updated.
 
+### Asset cache busting
+
+`index.html` loads `css/style.css?v=N` and `js/main.js?v=N`. **Bump N whenever either file
+changes.** GitHub Pages serves everything with `Cache-Control: max-age=600`, and the edge can hand
+out the two files with different ages, so a browser can pair a fresh `index.html` with a
+ten-minute-stale `main.js`. That is not hypothetical: removing `#cs-mode-desc` from the markup while
+a cached `main.js` still did `descEl.innerHTML = ...` threw inside `showMode`, the clip `src` was
+never assigned, and the recovery videos rendered as empty black frames. It self-heals after ten
+minutes, which makes it easy to misdiagnose as a deploy delay.
+
 ### Known open items
 
 - The three stack-cups failure-mode labels in `real_world.json` were proposed from watching the clips
