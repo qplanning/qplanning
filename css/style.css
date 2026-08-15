@@ -192,13 +192,19 @@ main {
   font-family: var(--sans);
   font-size: 16px;
   color: var(--ink);
-  margin: 0 0 4px;
-}
-.hero .affil {
-  font-family: var(--sans);
-  font-size: 14px;
-  color: var(--muted);
+  line-height: 1.7;
+  /* carries the gap to the buttons now that no affiliation line follows */
   margin: 0 0 28px;
+}
+.hero .authors a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+}
+.hero .authors a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 .hero-actions {
   display: flex;

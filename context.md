@@ -11,7 +11,9 @@ This repo hosts the project page for the CoRL 2026 paper **"Beyond Imitation: Se
 - Code repo referenced from the site's "Code" buttons: `https://github.com/qplanning/lerobot`
 - Reference / stylistic inspiration: `https://research.nvidia.com/labs/gear/robottt/`
 
-The submission is currently anonymous (reviewing at CoRL 2026), so the site shows "Anonymous Authors" and a placeholder BibTeX entry. De-anonymise both once the review period closes.
+The page is de-anonymised: the hero lists all five authors, each linked to their personal site, and the "Under review at CoRL 2026" line has been removed. The BibTeX entry is a `@misc` with the real author list and no venue — deliberately, since claiming one would be inventing it; swap it for the real entry (or add an arXiv `eprint`) once there is one.
+
+**`assets/paper.pdf` is still the anonymised submission** — its title page reads "Anonymous Author(s) / Affiliation / Address email". The Paper button therefore hands out an anonymous PDF from a de-anonymised page. Rebuilding it needs the LaTeX in `_CoRL_2026__Q_Planning/` recompiled with a real `\author` block, which needs affiliations this repo does not have.
 
 ## 2. File layout
 
